@@ -16,6 +16,7 @@ export function TextField({ label, id, error, required, ...props }: TextFieldPro
         id={id}
         required={required}
         {...props}
+        lang={props.type === 'date' ? 'es-ES' : props.lang}
         className="h-12 w-full rounded-2xl border border-line bg-white px-4 text-sm outline-none ring-primary/15 transition focus:border-primary focus:ring-4"
       />
       {error ? <p className="mt-1 text-sm text-danger">{error}</p> : null}

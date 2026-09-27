@@ -10,7 +10,7 @@ String formatDateOnly(String iso) {
   if (iso.length < 10) {
     return iso;
   }
-  return '${iso.substring(0, 4)}/${iso.substring(5, 7)}/${iso.substring(8, 10)}';
+  return '${iso.substring(8, 10)}/${iso.substring(5, 7)}/${iso.substring(0, 4)}';
 }
 
 String formatMoney(num value) {
