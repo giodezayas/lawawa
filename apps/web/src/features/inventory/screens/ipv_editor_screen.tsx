@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { ProductSearchSelect } from '../../../shared/ui/product_search_select';
 import { TextField } from '../../../shared/ui/text_field';
@@ -50,6 +51,7 @@ export function IpvEditorScreen() {
   const isCreate = ipvId === undefined;
   const navigate = useNavigate();
   const { container, user } = useAuth();
+  const confirm = useConfirm();
   const [products, setProducts] = useState<Product[]>([]);
   const [document, setDocument] = useState<IpvDocument | null>(null);
   const [workDate, setWorkDate] = useState(todayIsoDate());
@@ -175,6 +177,9 @@ export function IpvEditorScreen() {
     if (!document || locked) {
       return;
     }
+    if (!(await confirm({ message: '¿Quitar este producto del IPV?' }))) {
+      return;
+    }
     await container.removeIpvLine.execute(lineId);
     setDocument(await container.getIpv.execute(document.id));
   }
@@ -221,7 +226,7 @@ export function IpvEditorScreen() {
   }
 
   async function deleteIpv() {
-    if (!document || !window.confirm('¿Borrar este IPV?')) {
+    if (!document || !(await confirm({ message: '¿Borrar este IPV?' }))) {
       return;
     }
     setDeleting(true);
@@ -241,7 +246,9 @@ export function IpvEditorScreen() {
       <div className="mx-auto max-w-xl space-y-6">
         <div>
           <h1 className="text-2xl font-extrabold">Crear IPV</h1>
-          <p className="mt-1 text-sm text-muted">Un solo documento por día.</p>
+          <p className="mt-1 text-sm text-muted">
+            Un solo documento por día. Al crearlo se cargan solos los productos con stock.
+          </p>
         </div>
         {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
         <form onSubmit={(event) => void handleCreate(event)} className="space-y-4 rounded-3xl border border-line bg-surface p-5">
@@ -344,7 +351,11 @@ export function IpvEditorScreen() {
 
       {locked ? null : (
         <form onSubmit={(event) => void addLine(event)} className="space-y-4 rounded-3xl border border-line bg-surface p-5">
-          <ProductSearchSelect products={products} selectedId={draft.productId} onSelect={selectProduct} />
+          <ProductSearchSelect
+            products={products.filter((product) => !document.lines.some((line) => line.productId === product.id))}
+            selectedId={draft.productId}
+            onSelect={selectProduct}
+          />
           <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
             <TextField
               id="opening"
@@ -401,7 +412,7 @@ export function IpvEditorScreen() {
             <span>
               <span className="font-medium">Suma Al Inventario</span>
               <span className="mt-0.5 block text-muted">
-                Márcalo solo si esta entrada no la cargaste en Compras.
+                Márcalo si embolsas acá. Al cerrar el IPV se descuenta del saco (1 lb o 2.2 lb por kg).
               </span>
             </span>
           </label>
@@ -435,7 +446,7 @@ export function IpvEditorScreen() {
             {document.lines.length === 0 ? (
               <tr>
                 <td colSpan={locked ? 10 : 11} className="px-4 py-8 text-center text-muted">
-                  Agrega productos del catálogo a este turno.
+                  No hay productos en este IPV. Puedes agregar uno del catálogo.
                 </td>
               </tr>
             ) : (

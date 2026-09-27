@@ -48,6 +48,8 @@ export type Database = {
           timezone: string;
           tax_rate: string;
           billing_start_day: number;
+          billing_period_from: string;
+          billing_period_to: string;
           updated_at: string;
         };
         Insert: {
@@ -56,6 +58,8 @@ export type Database = {
           timezone?: string;
           tax_rate?: number | string;
           billing_start_day?: number;
+          billing_period_from?: string;
+          billing_period_to?: string;
           updated_at?: string;
         };
         Update: {
@@ -63,6 +67,8 @@ export type Database = {
           timezone?: string;
           tax_rate?: number | string;
           billing_start_day?: number;
+          billing_period_from?: string;
+          billing_period_to?: string;
           updated_at?: string;
         };
         Relationships: [];

@@ -2,11 +2,13 @@ import { DomainError, User } from '@wawa/domain';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 
 type SortKey = 'fullName' | 'email' | 'role';
 
 export function UserListScreen() {
   const { container, user } = useAuth();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<User[]>([]);
   const [pageError, setPageError] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
@@ -48,7 +50,7 @@ export function UserListScreen() {
   }
 
   async function handleDelete(row: User) {
-    if (!user || !window.confirm(`¿Borrar a ${User.displayName(row)}?`)) {
+    if (!user || !(await confirm({ message: `¿Borrar a ${User.displayName(row)}?` }))) {
       return;
     }
     setDeletingId(row.id);

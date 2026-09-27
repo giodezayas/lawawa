@@ -61,7 +61,7 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
         children: [
           const Text('IPV', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          const Text('Un IPV por día. Al cerrar ya no se edita.', style: TextStyle(color: AppColors.muted)),
+          const Text('Un IPV por día. Al crearlo se cargan los productos con stock.', style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 16),
           PrimaryButton(
             label: 'Crear IPV',

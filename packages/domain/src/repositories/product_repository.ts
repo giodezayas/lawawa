@@ -6,7 +6,6 @@ export type CreateProductInput = {
   purchasePrice: number;
   replenishmentCost: number;
   minStock: number;
-  openingStock: number;
 };
 
 export type UpdateProductInput = {

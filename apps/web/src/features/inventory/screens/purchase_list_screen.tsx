@@ -1,13 +1,15 @@
-import { DomainError, PurchaseDocument, formatDateOnly, formatMoney, type CashFlow, billingPeriodContaining, todayIsoDate } from '@wawa/domain';
+import { DomainError, PurchaseDocument, formatDateOnly, formatMoney, type CashFlow } from '@wawa/domain';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { CashFlowSummary } from '../../../shared/ui/cash_flow_summary';
 
 type SortKey = 'purchasedOn' | 'total';
 
 export function PurchaseListScreen() {
   const { container } = useAuth();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof container.listPurchases.execute>>>([]);
   const [flow, setFlow] = useState<CashFlow | null>(null);
   const [pageError, setPageError] = useState('');
@@ -16,8 +18,7 @@ export function PurchaseListScreen() {
   const [deletingId, setDeletingId] = useState('');
 
   async function load() {
-    const startDay = await container.getBillingStartDay.execute();
-    const period = billingPeriodContaining(todayIsoDate(), startDay);
+    const period = await container.getBillingPeriod.execute();
     const [nextRows, nextFlow] = await Promise.all([
       container.listPurchases.execute(),
       container.getCashFlow.execute(period.from, period.to),
@@ -33,7 +34,7 @@ export function PurchaseListScreen() {
   }, [container]);
 
   async function handleDelete(id: string) {
-    if (!window.confirm('¿Borrar esta compra? El stock se va a recalcular.')) {
+    if (!(await confirm({ message: '¿Borrar esta compra? El stock se va a recalcular.' }))) {
       return;
     }
     setDeletingId(id);

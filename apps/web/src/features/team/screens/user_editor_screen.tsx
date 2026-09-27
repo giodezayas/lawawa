@@ -2,6 +2,7 @@ import { DomainError, User, userRoles, type UserRole } from '@wawa/domain';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
@@ -10,6 +11,7 @@ export function UserEditorScreen() {
   const isCreate = userId === undefined;
   const navigate = useNavigate();
   const { container, user } = useAuth();
+  const confirm = useConfirm();
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<UserRole>('trabajador');
@@ -72,7 +74,7 @@ export function UserEditorScreen() {
   }
 
   async function handleDelete() {
-    if (!user || !userId || user.id === userId || !window.confirm('¿Borrar este usuario?')) {
+    if (!user || !userId || user.id === userId || !(await confirm({ message: '¿Borrar este usuario?' }))) {
       return;
     }
     setDeleting(true);

@@ -67,7 +67,6 @@ export class ProductRepositoryImpl implements ProductRepository {
     purchasePrice: number;
     replenishmentCost: number;
     minStock: number;
-    openingStock: number;
   }): Promise<Product> {
     const { data, error } = await this.client
       .from('products')
@@ -86,16 +85,6 @@ export class ProductRepositoryImpl implements ProductRepository {
         throw new DomainError('Ese producto ya existe en el catálogo.', InventoryErrorCodes.duplicate);
       }
       throw new DomainError(error?.message ?? 'No se pudo guardar el producto.', InventoryErrorCodes.invalidInput);
-    }
-
-    if (input.openingStock > 0) {
-      const { error: stockError } = await this.client.rpc('adjust_product_stock', {
-        p_id: data.id,
-        p_qty: input.openingStock,
-      });
-      if (stockError) {
-        throw new DomainError(stockError.message, InventoryErrorCodes.invalidInput);
-      }
     }
 
     return this.requireById(data.id);

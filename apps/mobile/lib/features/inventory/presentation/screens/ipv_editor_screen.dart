@@ -226,6 +226,7 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
               value: _selectedId,
               decoration: const InputDecoration(labelText: 'Producto'),
               items: _products
+                  .where((product) => !doc.lines.any((line) => line.productId == product.id))
                   .map((product) => DropdownMenuItem(value: product.id, child: Text(product.name)))
                   .toList(),
               onChanged: (id) {
@@ -254,6 +255,9 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('La Entrada Suma Stock'),
+              subtitle: const Text(
+                'Si embolsas azúcar, al cerrar se descuenta del saco.',
+              ),
               value: _addsStock,
               onChanged: (value) => setState(() => _addsStock = value),
             ),

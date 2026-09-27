@@ -2,6 +2,7 @@ import { DomainError, Product, formatMoney, toMoneyNumber } from '@wawa/domain';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
@@ -9,13 +10,13 @@ type SortKey = 'name' | 'salePrice' | 'replenishmentCost' | 'stockQty';
 
 export function ProductsScreen() {
   const { container } = useAuth();
+  const confirm = useConfirm();
   const [products, setProducts] = useState<Awaited<ReturnType<typeof container.listProducts.execute>>>([]);
   const [name, setName] = useState('');
   const [salePrice, setSalePrice] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [replenishmentCost, setReplenishmentCost] = useState('');
   const [minStock, setMinStock] = useState('');
-  const [openingStock, setOpeningStock] = useState('');
   const [nameError, setNameError] = useState('');
   const [pageError, setPageError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,14 +71,12 @@ export function ProductsScreen() {
         purchasePrice: toMoneyNumber(purchasePrice),
         replenishmentCost: toMoneyNumber(replenishmentCost),
         minStock: toMoneyNumber(minStock),
-        openingStock: toMoneyNumber(openingStock),
       });
       setName('');
       setSalePrice('');
       setPurchasePrice('');
       setReplenishmentCost('');
       setMinStock('');
-      setOpeningStock('');
       await load();
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el producto.');
@@ -87,7 +86,7 @@ export function ProductsScreen() {
   }
 
   async function handleDelete(productId: string, productName: string) {
-    if (!window.confirm(`¿Borrar ${productName}? Se borran sus compras y líneas de IPV.`)) {
+    if (!(await confirm({ message: `¿Borrar ${productName}? Se borran sus compras y líneas de IPV.` }))) {
       return;
     }
     setDeletingId(productId);
@@ -107,8 +106,7 @@ export function ProductsScreen() {
       <div>
         <h1 className="text-2xl font-extrabold">Catálogo De Productos</h1>
         <p className="mt-1 text-sm text-muted">
-          Precio de venta, precio de compra y costo de reposición se editan en el
-          producto. El stock sigue el último IPV cerrado.
+          Precio de venta y costo se editan aquí. El stock empieza en 0 y sube con las compras.
         </p>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
@@ -151,13 +149,6 @@ export function ProductsScreen() {
           inputMode="decimal"
           value={minStock}
           onChange={(event) => setMinStock(event.target.value)}
-        />
-        <TextField
-          id="opening-stock"
-          label="Stock Inicial"
-          inputMode="decimal"
-          value={openingStock}
-          onChange={(event) => setOpeningStock(event.target.value)}
         />
         <PrimaryButton type="submit" loading={loading} className="w-full">
           Agregar Producto

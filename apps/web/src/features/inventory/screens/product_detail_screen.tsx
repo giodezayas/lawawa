@@ -2,6 +2,7 @@ import { DomainError, Product, StockMovement, formatDateOnly, toMoneyNumber } fr
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
@@ -9,6 +10,7 @@ export function ProductDetailScreen() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const { container } = useAuth();
+  const confirm = useConfirm();
   const [product, setProduct] = useState<Product | null>(null);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [name, setName] = useState('');
@@ -97,7 +99,7 @@ export function ProductDetailScreen() {
   }
 
   async function handleDelete() {
-    if (!product || !window.confirm('¿Borrar este producto? Se borran sus compras y líneas de IPV.')) {
+    if (!product || !(await confirm({ message: '¿Borrar este producto? Se borran sus compras y líneas de IPV.' }))) {
       return;
     }
     setDeleting(true);

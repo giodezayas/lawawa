@@ -2,11 +2,13 @@ import { DomainError, ExpenseEntry, formatDateOnly, formatMoney } from '@wawa/do
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 
 type SortKey = 'occurredOn' | 'name' | 'amount';
 
 export function ExpenseListScreen() {
   const { container } = useAuth();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<ExpenseEntry[]>([]);
   const [pageError, setPageError] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('occurredOn');
@@ -46,7 +48,7 @@ export function ExpenseListScreen() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('¿Borrar este gasto?')) {
+    if (!(await confirm({ message: '¿Borrar este gasto?' }))) {
       return;
     }
     setDeletingId(id);

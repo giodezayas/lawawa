@@ -32,7 +32,7 @@ import {
   GetProductUseCase,
   GetPurchaseUseCase,
   GetPeriodReportUseCase,
-  GetBillingStartDayUseCase,
+  GetBillingPeriodUseCase,
   GetUserUseCase,
   ListExpenseEntriesUseCase,
   ListIpvsUseCase,
@@ -44,7 +44,7 @@ import {
   RemoveIpvLineUseCase,
   SignInUseCase,
   SignOutUseCase,
-  SetBillingStartDayUseCase,
+  SetBillingPeriodUseCase,
   UpdateExpenseEntryUseCase,
   UpdateIpvCollectionsUseCase,
   UpdateProductUseCase,
@@ -92,8 +92,8 @@ export type AppContainer = {
   updateExpenseEntry: UpdateExpenseEntryUseCase;
   deleteExpenseEntry: DeleteExpenseEntryUseCase;
   getPeriodReport: GetPeriodReportUseCase;
-  getBillingStartDay: GetBillingStartDayUseCase;
-  setBillingStartDay: SetBillingStartDayUseCase;
+  getBillingPeriod: GetBillingPeriodUseCase;
+  setBillingPeriod: SetBillingPeriodUseCase;
   closeBillingPeriod: CloseBillingPeriodUseCase;
 };
 
@@ -162,8 +162,8 @@ export function createAppContainer(): AppContainer {
     updateExpenseEntry: new UpdateExpenseEntryUseCase(expenseRepository),
     deleteExpenseEntry: new DeleteExpenseEntryUseCase(expenseRepository),
     getPeriodReport: new GetPeriodReportUseCase(expenseRepository),
-    getBillingStartDay: new GetBillingStartDayUseCase(expenseRepository),
-    setBillingStartDay: new SetBillingStartDayUseCase(expenseRepository),
+    getBillingPeriod: new GetBillingPeriodUseCase(expenseRepository),
+    setBillingPeriod: new SetBillingPeriodUseCase(expenseRepository),
     closeBillingPeriod: new CloseBillingPeriodUseCase(expenseRepository),
   };
 }

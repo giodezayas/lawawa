@@ -2,6 +2,7 @@ import { DomainError, expenseCadences, ExpenseEntry, todayIsoDate, toMoneyNumber
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
@@ -10,6 +11,7 @@ export function ExpenseEditorScreen() {
   const isCreate = expenseId === undefined;
   const navigate = useNavigate();
   const { container, user } = useAuth();
+  const confirm = useConfirm();
   const [name, setName] = useState('');
   const [occurredOn, setOccurredOn] = useState(todayIsoDate());
   const [cadence, setCadence] = useState<ExpenseCadence>('once');
@@ -68,7 +70,7 @@ export function ExpenseEditorScreen() {
   }
 
   async function handleDelete() {
-    if (!expenseId || !window.confirm('¿Borrar este gasto?')) {
+    if (!expenseId || !(await confirm({ message: '¿Borrar este gasto?' }))) {
       return;
     }
     setDeleting(true);

@@ -3,42 +3,40 @@ import {
   FIXED_TAX_RATE,
   PeriodReport,
   User,
-  billingPeriodContaining,
-  billingPeriodLabel,
   formatDateOnly,
   formatMoney,
-  shiftBillingPeriod,
+  shiftBillingRange,
   todayIsoDate,
 } from '@wawa/domain';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { moneyTone } from '../../../shared/ui/money_tone';
 
 export function ResultsScreen() {
   const { container, user } = useAuth();
-  const [startDay, setStartDay] = useState(1);
-  const [anchor, setAnchor] = useState(todayIsoDate());
+  const confirm = useConfirm();
+  const [from, setFrom] = useState(todayIsoDate());
+  const [to, setTo] = useState(todayIsoDate());
   const [report, setReport] = useState<PeriodReport | null>(null);
   const [pageError, setPageError] = useState('');
-  const [savingPeriod, setSavingPeriod] = useState(false);
   const [closing, setClosing] = useState(false);
 
-  const bounds = billingPeriodContaining(anchor, startDay);
   const taxPercent = Math.round(FIXED_TAX_RATE * 100);
   const canManage = user ? User.canManageStaff(user) : false;
 
-  async function load(nextFrom = bounds.from, nextTo = bounds.to) {
+  async function load(nextFrom = from, nextTo = to) {
     setReport(await container.getPeriodReport.execute(nextFrom, nextTo));
   }
 
   useEffect(() => {
-    void container.getBillingStartDay
+    void container.getBillingPeriod
       .execute()
-      .then((day) => {
-        setStartDay(day);
-        setAnchor(todayIsoDate());
+      .then((period) => {
+        setFrom(period.from);
+        setTo(period.to);
       })
       .catch((error) => {
         setPageError(error instanceof DomainError ? error.message : 'No se pudo cargar el período.');
@@ -46,33 +44,25 @@ export function ResultsScreen() {
   }, [container]);
 
   useEffect(() => {
-    void load().catch((error) => {
+    void load(from, to).catch((error) => {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo armar el corte.');
     });
-  }, [container, bounds.from, bounds.to]);
-
-  async function saveStartDay(day: number) {
-    setSavingPeriod(true);
-    setPageError('');
-    try {
-      const saved = await container.setBillingStartDay.execute(day);
-      setStartDay(saved);
-      setAnchor(todayIsoDate());
-    } catch (error) {
-      setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el período.');
-    } finally {
-      setSavingPeriod(false);
-    }
-  }
+  }, [container, from, to]);
 
   async function closePeriod() {
-    if (!window.confirm('¿Cerrar este período de facturación? No se podrán editar gastos ni IPV de esas fechas.')) {
+    if (
+      !(await confirm({
+        title: 'Cerrar Período',
+        message: '¿Cerrar este período de facturación? No se podrán editar gastos ni IPV de esas fechas.',
+        confirmLabel: 'Cerrar',
+      }))
+    ) {
       return;
     }
     setClosing(true);
     setPageError('');
     try {
-      await container.closeBillingPeriod.execute(bounds.from, bounds.to);
+      await container.closeBillingPeriod.execute(from, to);
       await load();
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo cerrar el período.');
@@ -82,8 +72,9 @@ export function ResultsScreen() {
   }
 
   function shift(direction: number) {
-    const next = shiftBillingPeriod(bounds.from, bounds.to, startDay, direction);
-    setAnchor(next.from);
+    const next = shiftBillingRange(from, to, direction);
+    setFrom(next.from);
+    setTo(next.to);
   }
 
   return (
@@ -92,7 +83,7 @@ export function ResultsScreen() {
         <div>
           <h1 className="text-2xl font-extrabold">Resultados</h1>
           <p className="mt-1 text-sm text-muted">
-            {billingPeriodLabel(startDay)}. Impuesto fijo {taxPercent}% sobre utilidad positiva.
+            El rango se define en Inicio. Impuesto fijo {taxPercent}% sobre utilidad positiva.
           </p>
         </div>
         {report?.closed ? (
@@ -103,32 +94,12 @@ export function ResultsScreen() {
           </PrimaryButton>
         ) : null}
       </div>
-      {canManage ? (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={`h-12 min-w-[10rem] flex-1 rounded-2xl px-5 text-sm font-semibold sm:flex-none ${startDay === 1 ? 'btn-primary' : 'btn-outline'}`}
-            disabled={savingPeriod}
-            onClick={() => void saveStartDay(1)}
-          >
-            Día 1 Al Último
-          </button>
-          <button
-            type="button"
-            className={`h-12 min-w-[10rem] flex-1 rounded-2xl px-5 text-sm font-semibold sm:flex-none ${startDay === 20 ? 'btn-primary' : 'btn-outline'}`}
-            disabled={savingPeriod}
-            onClick={() => void saveStartDay(20)}
-          >
-            Del 20 Al 20
-          </button>
-        </div>
-      ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold" onClick={() => shift(-1)}>
           Anterior
         </button>
         <p className="text-sm font-semibold">
-          {formatDateOnly(bounds.from)} — {formatDateOnly(bounds.to)}
+          {formatDateOnly(from)} — {formatDateOnly(to)}
         </p>
         <button type="button" className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold" onClick={() => shift(1)}>
           Siguiente

@@ -43,32 +43,22 @@ double asNum(dynamic value) {
   return double.tryParse(value.toString()) ?? 0;
 }
 
-({String from, String to}) billingPeriodContaining(String iso, int startDay) {
-  final day = startDay.clamp(1, 28);
-  final date = DateTime.parse('${iso}T00:00:00');
-  if (day == 1) {
-    final from = DateTime(date.year, date.month, 1);
-    final to = DateTime(date.year, date.month + 1, 0);
-    return (from: isoDate(from), to: isoDate(to));
-  }
-  if (date.day >= day) {
-    final from = DateTime(date.year, date.month, day);
-    final to = DateTime(date.year, date.month + 1, day).subtract(const Duration(days: 1));
-    return (from: isoDate(from), to: isoDate(to));
-  }
-  final from = DateTime(date.year, date.month - 1, day);
-  final to = DateTime(date.year, date.month, day).subtract(const Duration(days: 1));
-  return (from: isoDate(from), to: isoDate(to));
+({String from, String to}) defaultBillingPeriod() {
+  return (from: '2026-08-31', to: isoDate());
 }
 
-({String from, String to}) shiftBillingPeriod(String from, String to, int startDay, int direction) {
-  final pivot = DateTime.parse('${direction > 0 ? to : from}T00:00:00').add(Duration(days: direction > 0 ? 1 : -1));
-  return billingPeriodContaining(isoDate(pivot), startDay);
-}
-
-String billingPeriodLabel(int startDay) {
-  final day = startDay.clamp(1, 28);
-  return day == 1 ? 'Del Día 1 Al Último Del Mes' : 'Del Día $day Al ${day - 1} Del Mes Siguiente';
+({String from, String to}) shiftBillingRange(String from, String to, int direction) {
+  final start = DateTime.parse('${from}T00:00:00');
+  final end = DateTime.parse('${to}T00:00:00');
+  final span = end.difference(start).inDays + 1;
+  if (direction > 0) {
+    final nextFrom = DateTime.parse('${to}T00:00:00').add(const Duration(days: 1));
+    final nextTo = nextFrom.add(Duration(days: span - 1));
+    return (from: isoDate(nextFrom), to: isoDate(nextTo));
+  }
+  final nextTo = DateTime.parse('${from}T00:00:00').subtract(const Duration(days: 1));
+  final nextFrom = nextTo.subtract(Duration(days: span - 1));
+  return (from: isoDate(nextFrom), to: isoDate(nextTo));
 }
 
 String ipvTodayLabel(String status) {

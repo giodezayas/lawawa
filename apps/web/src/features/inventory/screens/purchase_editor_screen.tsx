@@ -1,7 +1,8 @@
-import { DomainError, PurchaseDocument, billingPeriodContaining, formatMoney, paymentMethods, todayIsoDate, toMoneyNumber, type CashFlow, type PaymentMethod, type Product } from '@wawa/domain';
+import { DomainError, PurchaseDocument, formatMoney, paymentMethods, todayIsoDate, toMoneyNumber, type CashFlow, type PaymentMethod, type Product } from '@wawa/domain';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { CashFlowSummary } from '../../../shared/ui/cash_flow_summary';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { ProductSearchSelect } from '../../../shared/ui/product_search_select';
@@ -18,6 +19,7 @@ export function PurchaseEditorScreen() {
   const { purchaseId } = useParams();
   const isCreate = purchaseId === undefined;
   const { container, user } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [purchasedOn, setPurchasedOn] = useState(todayIsoDate());
@@ -34,8 +36,7 @@ export function PurchaseEditorScreen() {
   useEffect(() => {
     void container.listProducts.execute().then(setProducts);
     void (async () => {
-      const startDay = await container.getBillingStartDay.execute();
-      const period = billingPeriodContaining(todayIsoDate(), startDay);
+      const period = await container.getBillingPeriod.execute();
       setFlow(await container.getCashFlow.execute(period.from, period.to));
     })().catch(() => undefined);
   }, [container]);
@@ -124,7 +125,7 @@ export function PurchaseEditorScreen() {
   }
 
   async function handleDelete() {
-    if (!purchaseId || !window.confirm('¿Borrar esta compra? El stock se va a recalcular.')) {
+    if (!purchaseId || !(await confirm({ message: '¿Borrar esta compra? El stock se va a recalcular.' }))) {
       return;
     }
     setDeleting(true);
@@ -245,7 +246,14 @@ export function PurchaseEditorScreen() {
                       <button
                         type="button"
                         className="text-danger"
-                        onClick={() => setLines((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                        onClick={() => {
+                          void (async () => {
+                            if (!(await confirm({ message: '¿Quitar este producto de la compra?' }))) {
+                              return;
+                            }
+                            setLines((current) => current.filter((_, itemIndex) => itemIndex !== index));
+                          })();
+                        }}
                       >
                         Quitar
                       </button>

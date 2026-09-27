@@ -63,14 +63,23 @@ class WawaClient {
     });
   }
 
-  Future<int> billingStartDay() {
+  Future<({String from, String to})> billingPeriod() {
     return _run(() async {
-      final row = await _client.from('business_settings').select('billing_start_day').limit(1).maybeSingle();
-      return (row?['billing_start_day'] as num?)?.toInt() ?? 1;
+      final row = await _client
+          .from('business_settings')
+          .select('billing_period_from, billing_period_to')
+          .limit(1)
+          .maybeSingle();
+      final from = row?['billing_period_from'] as String?;
+      final to = row?['billing_period_to'] as String?;
+      if (from != null && to != null && to.compareTo(from) >= 0) {
+        return (from: from, to: to);
+      }
+      return defaultBillingPeriod();
     });
   }
 
-  Future<int> setBillingStartDay(int day) {
+  Future<({String from, String to})> setBillingPeriod(String from, String to) {
     return _run(() async {
       final existing = await _client.from('business_settings').select('id').limit(1).maybeSingle();
       if (existing == null) {
@@ -78,11 +87,11 @@ class WawaClient {
       }
       final row = await _client
           .from('business_settings')
-          .update({'billing_start_day': day})
+          .update({'billing_period_from': from, 'billing_period_to': to})
           .eq('id', existing['id'] as String)
-          .select('billing_start_day')
+          .select('billing_period_from, billing_period_to')
           .single();
-      return (row['billing_start_day'] as num).toInt();
+      return (from: '${row['billing_period_from']}', to: '${row['billing_period_to']}');
     });
   }
 
@@ -178,19 +187,15 @@ class WawaClient {
     required double purchasePrice,
     required double replenishmentCost,
     required double minStock,
-    required double openingStock,
   }) {
     return _run(() async {
-      final row = await _client.from('products').insert({
+      await _client.from('products').insert({
         'name': name,
         'sale_price': salePrice,
         'purchase_price': purchasePrice,
         'replenishment_cost': replenishmentCost,
         'min_stock': minStock,
-      }).select('id').single();
-      if (openingStock > 0) {
-        await _client.rpc('adjust_product_stock', params: {'p_id': row['id'], 'p_qty': openingStock});
-      }
+      });
     });
   }
 
@@ -276,14 +281,36 @@ class WawaClient {
         'shift': 'manana',
         'created_by': createdBy,
       }).select().single();
-      return IpvDoc(
-        id: row['id'] as String,
-        workDate: '${row['work_date']}',
-        status: row['status'] as String,
-        cashCollected: asNum(row['cash_collected']),
-        transferCollected: asNum(row['transfer_collected']),
-        lines: const [],
-      );
+      final ipvId = row['id'] as String;
+      final catalog = await _client.from('product_catalog').select().eq('is_active', true).gt('stock_qty', 0).order('name');
+      final products = (catalog as List)
+          .map((item) => _product(Map<String, dynamic>.from(item as Map)))
+          .where((product) => product.isActive && product.stockQty > 0)
+          .toList();
+      if (products.isNotEmpty) {
+        await _client.from('ipv_lines').insert(
+          products
+              .asMap()
+              .entries
+              .map(
+                (entry) => {
+                  'ipv_id': ipvId,
+                  'product_id': entry.value.id,
+                  'product_name': entry.value.name,
+                  'opening_qty': entry.value.stockQty,
+                  'inbound_qty': 0,
+                  'outbound_qty': 0,
+                  'sold_qty': 0,
+                  'sale_price': entry.value.salePrice,
+                  'replenishment_cost': entry.value.replenishmentCost,
+                  'inbound_adds_stock': false,
+                  'sort_order': entry.key,
+                },
+              )
+              .toList(),
+        );
+      }
+      return ipv(ipvId);
     });
   }
 

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createAppContainer, isWebConfigured } from './app/container';
 import { AuthProvider } from './app/providers/auth_provider';
 import { AppRouter } from './app/router';
+import { ConfirmProvider } from './shared/ui/confirm_dialog';
 import { SetupScreen } from './features/setup/screens/setup_screen';
 import './index.css';
 
@@ -26,6 +27,8 @@ function Root() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Root />
+    <ConfirmProvider>
+      <Root />
+    </ConfirmProvider>
   </StrictMode>,
 );

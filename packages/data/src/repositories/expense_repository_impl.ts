@@ -6,6 +6,7 @@ import {
   type ExpenseRepository,
   type PeriodReport,
   type UpdateExpenseEntryInput,
+  defaultBillingPeriod,
 } from '@wawa/domain';
 import { mapExpenseEntry } from '../mappers/expense_mapper';
 import { mapPeriodReport } from '../mappers/period_report_mapper';
@@ -89,15 +90,25 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
     return mapPeriodReport(data);
   }
 
-  async getBillingStartDay(): Promise<number> {
-    const { data, error } = await this.client.from('business_settings').select('billing_start_day').limit(1).maybeSingle();
+  async getBillingPeriod() {
+    const fallback = defaultBillingPeriod();
+    const { data, error } = await this.client
+      .from('business_settings')
+      .select('billing_period_from, billing_period_to')
+      .limit(1)
+      .maybeSingle();
     if (error) {
       throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
     }
-    return Number(data?.billing_start_day ?? 1);
+    const from = data?.billing_period_from;
+    const to = data?.billing_period_to;
+    if (typeof from === 'string' && typeof to === 'string' && to >= from) {
+      return { from, to };
+    }
+    return fallback;
   }
 
-  async setBillingStartDay(startDay: number): Promise<number> {
+  async setBillingPeriod(from: string, to: string) {
     const { data: existing, error: readError } = await this.client.from('business_settings').select('id').limit(1).maybeSingle();
     if (readError) {
       throw new DomainError(readError.message, InventoryErrorCodes.invalidInput);
@@ -107,14 +118,14 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
     }
     const { data, error } = await this.client
       .from('business_settings')
-      .update({ billing_start_day: startDay })
+      .update({ billing_period_from: from, billing_period_to: to })
       .eq('id', existing.id)
-      .select('billing_start_day')
+      .select('billing_period_from, billing_period_to')
       .single();
-    if (error || !data) {
+    if (error || !data?.billing_period_from || !data.billing_period_to) {
       throw new DomainError(error?.message ?? 'No se pudo guardar el período.', InventoryErrorCodes.invalidInput);
     }
-    return Number(data.billing_start_day);
+    return { from: data.billing_period_from, to: data.billing_period_to };
   }
 
   async closeBillingPeriod(from: string, to: string): Promise<void> {

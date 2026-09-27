@@ -78,8 +78,8 @@ export {
   UpdateExpenseEntryUseCase,
   DeleteExpenseEntryUseCase,
   GetPeriodReportUseCase,
-  GetBillingStartDayUseCase,
-  SetBillingStartDayUseCase,
+  GetBillingPeriodUseCase,
+  SetBillingPeriodUseCase,
   CloseBillingPeriodUseCase,
 } from './usecases/expense_entries';
 export { formatMoney, toMoneyNumber } from './shared/money';
@@ -93,9 +93,8 @@ export {
   endOfMonth,
 } from './shared/date';
 export {
-  billingPeriodContaining,
-  shiftBillingPeriod,
-  billingPeriodLabel,
-  BILLING_START_DAY_MIN,
-  BILLING_START_DAY_MAX,
+  isBillingRange,
+  defaultBillingPeriod,
+  shiftBillingRange,
 } from './shared/billing_period';
+export type { BillingPeriodBounds } from './shared/billing_period';

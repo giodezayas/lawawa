@@ -2,10 +2,10 @@ import {
   DomainError,
   DashboardStats,
   FIXED_TAX_RATE,
+  User,
   type CashFlow,
   type PeriodReport,
   Product,
-  billingPeriodContaining,
   formatDateOnly,
   formatMoney,
   todayIsoDate,
@@ -15,37 +15,59 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { CashFlowSummary } from '../../../shared/ui/cash_flow_summary';
 import { moneyTone } from '../../../shared/ui/money_tone';
+import { PrimaryButton } from '../../../shared/ui/primary_button';
+import { TextField } from '../../../shared/ui/text_field';
 
 export function DashboardScreen() {
-  const { container } = useAuth();
+  const { container, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [month, setMonth] = useState<PeriodReport | null>(null);
   const [todayFlow, setTodayFlow] = useState<CashFlow | null>(null);
   const [periodFlow, setPeriodFlow] = useState<CashFlow | null>(null);
   const [lowStock, setLowStock] = useState<Product[]>([]);
   const [pageError, setPageError] = useState('');
+  const [periodFrom, setPeriodFrom] = useState(todayIsoDate());
+  const [periodTo, setPeriodTo] = useState(todayIsoDate());
+  const [savingPeriod, setSavingPeriod] = useState(false);
+  const canManage = user ? User.canManageStaff(user) : false;
+
+  async function load(from?: string, to?: string) {
+    const period = from && to ? { from, to } : await container.getBillingPeriod.execute();
+    setPeriodFrom(period.from);
+    setPeriodTo(period.to);
+    const today = todayIsoDate();
+    const [nextStats, products, monthReport, todayCash, periodCash] = await Promise.all([
+      container.getDashboardStats.execute(),
+      container.listProducts.execute(),
+      container.getPeriodReport.execute(period.from, period.to),
+      container.getCashFlow.execute(today, today),
+      container.getCashFlow.execute(period.from, period.to),
+    ]);
+    setStats(nextStats);
+    setLowStock(products.filter((product) => Product.isLowStock(product)));
+    setMonth(monthReport);
+    setTodayFlow(todayCash);
+    setPeriodFlow(periodCash);
+  }
 
   useEffect(() => {
-    void (async () => {
-      const startDay = await container.getBillingStartDay.execute();
-      const period = billingPeriodContaining(todayIsoDate(), startDay);
-      const today = todayIsoDate();
-      const [nextStats, products, monthReport, todayCash, periodCash] = await Promise.all([
-        container.getDashboardStats.execute(),
-        container.listProducts.execute(),
-        container.getPeriodReport.execute(period.from, period.to),
-        container.getCashFlow.execute(today, today),
-        container.getCashFlow.execute(period.from, period.to),
-      ]);
-      setStats(nextStats);
-      setLowStock(products.filter((product) => Product.isLowStock(product)));
-      setMonth(monthReport);
-      setTodayFlow(todayCash);
-      setPeriodFlow(periodCash);
-    })().catch((error) => {
+    void load().catch((error) => {
       setPageError(error instanceof DomainError ? error.message : 'No se pudieron cargar las estadísticas.');
     });
   }, [container]);
+
+  async function savePeriod() {
+    setSavingPeriod(true);
+    setPageError('');
+    try {
+      const saved = await container.setBillingPeriod.execute(periodFrom, periodTo);
+      await load(saved.from, saved.to);
+    } catch (error) {
+      setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el período.');
+    } finally {
+      setSavingPeriod(false);
+    }
+  }
 
   const taxPercent = Math.round(FIXED_TAX_RATE * 100);
 
@@ -61,6 +83,33 @@ export function DashboardScreen() {
         </Link>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
+      <section className="space-y-3 rounded-3xl border border-line bg-white px-5 py-4">
+        <h2 className="text-sm font-semibold text-primary">Período De Trabajo</h2>
+        <p className="text-sm text-muted">
+          Caja, resultados e impuestos usan estas fechas. Así no se pierde el 31 de agosto u otros días fuera del mes.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextField
+            label="Desde *"
+            type="date"
+            value={periodFrom}
+            onChange={(event) => setPeriodFrom(event.target.value)}
+            disabled={!canManage}
+          />
+          <TextField
+            label="Hasta *"
+            type="date"
+            value={periodTo}
+            onChange={(event) => setPeriodTo(event.target.value)}
+            disabled={!canManage}
+          />
+        </div>
+        {canManage ? (
+          <PrimaryButton type="button" loading={savingPeriod} onClick={() => void savePeriod()}>
+            Guardar Período
+          </PrimaryButton>
+        ) : null}
+      </section>
       {!stats ? (
         pageError ? null : <p className="text-sm text-muted">Cargando Estadísticas...</p>
       ) : (

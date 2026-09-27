@@ -23,7 +23,6 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   final _purchase = TextEditingController();
   final _cost = TextEditingController();
   final _min = TextEditingController();
-  final _opening = TextEditingController();
   final _adjust = TextEditingController();
   List<StockMove> _moves = [];
   var _active = true;
@@ -48,7 +47,6 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     _purchase.dispose();
     _cost.dispose();
     _min.dispose();
-    _opening.dispose();
     _adjust.dispose();
     super.dispose();
   }
@@ -90,7 +88,6 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           purchasePrice: parseMoney(_purchase.text),
           replenishmentCost: parseMoney(_cost.text),
           minStock: parseMoney(_min.text),
-          openingStock: parseMoney(_opening.text),
         );
         if (mounted) {
           Navigator.pop(context);
@@ -129,7 +126,6 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           LabeledField(label: 'Último Precio De Compra', controller: _purchase, keyboardType: TextInputType.number),
           LabeledField(label: 'Costo De Reposición', controller: _cost, keyboardType: TextInputType.number),
           LabeledField(label: 'Stock Mínimo', controller: _min, keyboardType: TextInputType.number),
-          if (_create) LabeledField(label: 'Stock Inicial', controller: _opening, keyboardType: TextInputType.number),
           if (!_create) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

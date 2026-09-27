@@ -2,12 +2,14 @@ import { DomainError, IpvDocument, formatDateOnly, formatMoney } from '@wawa/dom
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { moneyTone } from '../../../shared/ui/money_tone';
 
 type SortKey = 'workDate' | 'status';
 
 export function IpvListScreen() {
   const { container } = useAuth();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof container.listIpvs.execute>>>([]);
   const [pageError, setPageError] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('workDate');
@@ -25,7 +27,7 @@ export function IpvListScreen() {
   }, [container]);
 
   async function handleDelete(id: string) {
-    if (!window.confirm('¿Borrar este IPV? El stock del catálogo se va a recalcular.')) {
+    if (!(await confirm({ message: '¿Borrar este IPV? El stock del catálogo se va a recalcular.' }))) {
       return;
     }
     setDeletingId(id);
@@ -62,8 +64,7 @@ export function IpvListScreen() {
         <div>
           <h1 className="text-2xl font-extrabold">IPV</h1>
           <p className="mt-1 text-sm text-muted">
-            Un IPV por día. Salida no es venta: anotas vendidos aparte y el stock final se
-            calcula solo. Al cerrar ya no se edita.
+            Un IPV por día. Al crearlo se cargan los productos con stock. Al cerrar ya no se edita.
           </p>
         </div>
         <Link

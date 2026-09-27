@@ -11,22 +11,19 @@ export class CreateProductUseCase {
     purchasePrice: number;
     replenishmentCost: number;
     minStock: number;
-    openingStock?: number;
   }): Promise<Product> {
     const name = input.name.trim();
     if (name.length === 0) {
       throw new DomainError('El nombre del producto es obligatorio.', InventoryErrorCodes.invalidInput);
     }
 
-    const openingStock = input.openingStock ?? 0;
     if (
       input.salePrice < 0 ||
       input.purchasePrice < 0 ||
       input.replenishmentCost < 0 ||
-      input.minStock < 0 ||
-      openingStock < 0
+      input.minStock < 0
     ) {
-      throw new DomainError('El precio y el stock no pueden ser negativos.', InventoryErrorCodes.invalidInput);
+      throw new DomainError('El precio y el mínimo no pueden ser negativos.', InventoryErrorCodes.invalidInput);
     }
 
     return this.productRepository.create({
@@ -35,7 +32,6 @@ export class CreateProductUseCase {
       purchasePrice: input.purchasePrice,
       replenishmentCost: input.replenishmentCost,
       minStock: input.minStock,
-      openingStock,
     });
   }
 }

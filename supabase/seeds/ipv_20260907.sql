@@ -1,0 +1,224 @@
+-- IPV 7 sep 2026. Pasta 1. Galletas soda 5. Transferencia 9580, resto efectivo.
+
+do $$
+declare
+  actor uuid;
+  ipv uuid;
+  ipv_line public.ipv_lines;
+  pack public.product_packs;
+  bulk_left numeric(12, 3);
+  consume numeric(12, 3);
+  work date := date '2026-09-07';
+begin
+  select id into actor
+    from public.profiles
+    order by case when email ilike '%gdzayas%' then 0 else 1 end, created_at
+    limit 1;
+
+  if actor is null then
+    raise exception 'No hay usuario en profiles para created_by.';
+  end if;
+
+  update public.purchase_documents d
+  set purchased_on = date '2026-09-07'
+  where d.purchased_on = date '2026-09-09'
+    and exists (
+      select 1
+      from public.purchase_lines pl
+      join public.products p on p.id = pl.product_id
+      where pl.purchase_id = d.id
+        and p.name = 'Galletas Sala Saltbock'
+    )
+    and not exists (
+      select 1
+      from public.purchase_lines pl
+      join public.products p on p.id = pl.product_id
+      where pl.purchase_id = d.id
+        and p.name <> 'Galletas Sala Saltbock'
+    );
+
+  if exists (select 1 from public.ipv_documents where work_date = work) then
+    perform set_config('wawa.bypass_ipv_protect', 'on', true);
+    select id into ipv from public.ipv_documents where work_date = work;
+
+    insert into public.ipv_lines (
+      ipv_id, product_id, product_name, opening_qty, inbound_qty, outbound_qty, sold_qty,
+      sale_price, replenishment_cost, inbound_adds_stock, sort_order
+    )
+    select
+      ipv,
+      p.id,
+      p.name,
+      coalesce((
+        select sum(m.qty)
+        from public.stock_movements m
+        where m.product_id = p.id
+          and m.occurred_on <= work
+      ), 0),
+      0,
+      0,
+      5,
+      270,
+      p.replenishment_cost,
+      false,
+      23
+    from public.products p
+    where p.name = 'Galletas Sala Saltbock'
+      and not exists (
+        select 1 from public.ipv_lines existing
+        where existing.ipv_id = ipv and existing.product_id = p.id
+      );
+
+    insert into public.stock_movements (
+      product_id, kind, qty, unit_cost, occurred_on, ipv_line_id
+    )
+    select
+      ipv_row.product_id, 'ipv_sale', -ipv_row.sold_qty, ipv_row.replenishment_cost, work, ipv_row.id
+    from public.ipv_lines ipv_row
+    join public.products p on p.id = ipv_row.product_id
+    where ipv_row.ipv_id = ipv
+      and p.name = 'Galletas Sala Saltbock'
+      and ipv_row.sold_qty <> 0
+    on conflict do nothing;
+
+    update public.ipv_documents doc
+    set
+      transfer_collected = 9580,
+      cash_collected = greatest(
+        (select coalesce(sum(row.sale_total), 0) from public.ipv_lines row where row.ipv_id = doc.id) - 9580,
+        0
+      )
+    where doc.id = ipv;
+    return;
+  end if;
+
+  insert into public.ipv_documents (work_date, shift, created_by)
+  values (work, 'manana', actor)
+  returning id into ipv;
+
+  insert into public.ipv_lines (
+    ipv_id, product_id, product_name, opening_qty, inbound_qty, outbound_qty, sold_qty,
+    sale_price, replenishment_cost, inbound_adds_stock, sort_order
+  )
+  select
+    ipv,
+    p.id,
+    p.name,
+    coalesce((
+      select sum(m.qty)
+      from public.stock_movements m
+      where m.product_id = p.id
+        and m.occurred_on <= work
+    ), 0),
+    v.inbound_qty,
+    0,
+    v.sold_qty,
+    v.sale_price,
+    p.replenishment_cost,
+    v.inbound_qty > 0,
+    v.sort_order
+  from (
+    values
+      ('Papel Higiénico', 0::numeric, 1::numeric, 690::numeric, 1),
+      ('Pasta De Tomate', 0, 1, 650, 2),
+      ('Azúcar 1 lb', 0, 7, 500, 3),
+      ('Azúcar 1 kg', 0, 1, 1100, 4),
+      ('Arroz 1 kg', 0, 1, 800, 5),
+      ('Gomitas', 0, 10, 350, 6),
+      ('Mega', 0, 7, 250, 7),
+      ('Keks Azul', 0, 0, 220, 8),
+      ('Keks Morados', 0, 5, 220, 9),
+      ('Efsane', 0, 11, 220, 10),
+      ('Sazón Tropical Naranja', 0, 0, 70, 11),
+      ('Sazón Tropical Verde', 0, 0, 70, 12),
+      ('Sazón Mina', 0, 1, 60, 13),
+      ('Cuadrito De Pollo', 0, 3, 30, 14),
+      ('Pan Bon', 0, 13, 500, 15),
+      ('Jaba', 0, 11, 10, 16),
+      ('Ron HC', 0, 0, 800, 17),
+      ('Sazón Guama', 0, 0, 60, 18),
+      ('Vinagre 300 ml', 0, 0, 300, 19),
+      ('Cerveza Cristal', 0, 17, 500, 20),
+      ('Jabón Kare 75g', 0, 1, 300, 21),
+      ('Detergente Yamy 900g', 0, 0, 850, 22),
+      ('Galletas Sala Saltbock', 0, 5, 270, 23)
+  ) as v(name, inbound_qty, sold_qty, sale_price, sort_order)
+  join public.products p on p.name = v.name;
+
+  if exists (
+    select 1
+    from public.ipv_lines
+    where ipv_id = ipv
+      and closing_qty < 0
+  ) then
+    raise exception 'Hay un producto con vendidos por encima del stock del 7 sep.';
+  end if;
+
+  for ipv_line in
+    select * from public.ipv_lines where ipv_id = ipv
+  loop
+    if ipv_line.sold_qty <> 0 then
+      insert into public.stock_movements (
+        product_id, kind, qty, unit_cost, occurred_on, ipv_line_id
+      )
+      values (
+        ipv_line.product_id, 'ipv_sale', -ipv_line.sold_qty, ipv_line.replenishment_cost, work, ipv_line.id
+      )
+      on conflict do nothing;
+    end if;
+
+    if ipv_line.inbound_qty <> 0 and ipv_line.inbound_adds_stock then
+      insert into public.stock_movements (
+        product_id, kind, qty, unit_cost, occurred_on, ipv_line_id
+      )
+      values (
+        ipv_line.product_id, 'ipv_inbound', ipv_line.inbound_qty, ipv_line.replenishment_cost, work, ipv_line.id
+      )
+      on conflict do nothing;
+
+      select * into pack
+      from public.product_packs
+      where packed_product_id = ipv_line.product_id;
+
+      if pack.packed_product_id is not null then
+        consume := ipv_line.inbound_qty * pack.bulk_qty;
+        select coalesce(sum(qty), 0) into bulk_left
+        from public.stock_movements
+        where product_id = pack.bulk_product_id;
+
+        if bulk_left < consume then
+          raise exception
+            'No hay suficiente % para embolsar (faltan %).',
+            (select name from public.products where id = pack.bulk_product_id),
+            consume - bulk_left;
+        end if;
+
+        insert into public.stock_movements (
+          product_id, kind, qty, unit_cost, occurred_on, ipv_line_id
+        )
+        values (
+          pack.bulk_product_id, 'ipv_pack', -consume, ipv_line.replenishment_cost, work, ipv_line.id
+        )
+        on conflict do nothing;
+      end if;
+    end if;
+  end loop;
+
+  update public.ipv_documents
+  set
+    transfer_collected = 9580,
+    cash_collected = (
+      select coalesce(sum(sale_total), 0) from public.ipv_lines where ipv_id = ipv
+    ) - 9580
+  where id = ipv;
+
+  if (
+    select cash_collected from public.ipv_documents where id = ipv
+  ) < 0 then
+    raise exception 'La transferencia de 9580 supera la venta del IPV.';
+  end if;
+
+  update public.ipv_documents
+  set status = 'closed', closed_by = actor, closed_at = now()
+  where id = ipv;
+end $$;

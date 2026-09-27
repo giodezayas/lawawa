@@ -5,7 +5,9 @@ import '../../../../core/format.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models.dart';
 import '../../../../data/wawa_providers.dart';
+import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/ui.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../inventory/presentation/screens/products_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -23,6 +25,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   List<ProductRow> _lowStock = [];
   var _error = '';
   var _loading = true;
+  var _from = isoDate();
+  var _to = isoDate();
+  var _savingPeriod = false;
 
   @override
   void initState() {
@@ -37,8 +42,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
     try {
       final api = ref.read(wawaClientProvider);
-      final startDay = await api.billingStartDay();
-      final period = billingPeriodContaining(isoDate(), startDay);
+      final period = await api.billingPeriod();
+      _from = period.from;
+      _to = period.to;
       final today = isoDate();
       final stats = await api.dashboardStats();
       final products = await api.products();
@@ -54,6 +60,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _todayFlow = todayFlow;
         _periodFlow = periodFlow;
         _lowStock = products.where((product) => product.isLowStock).toList();
+        _from = period.from;
+        _to = period.to;
         _loading = false;
       });
     } catch (error) {
@@ -67,6 +75,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  Future<void> _pickDate({required bool isFrom}) async {
+    final initial = DateTime.parse('${isFrom ? _from : _to}T00:00:00');
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2032),
+    );
+    if (picked == null) {
+      return;
+    }
+    setState(() {
+      if (isFrom) {
+        _from = isoDate(picked);
+      } else {
+        _to = isoDate(picked);
+      }
+    });
+  }
+
+  Future<void> _savePeriod() async {
+    setState(() {
+      _savingPeriod = true;
+      _error = '';
+    });
+    try {
+      await ref.read(wawaClientProvider).setBillingPeriod(_from, _to);
+      await _load();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _savingPeriod = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -74,6 +122,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
     final stats = _stats;
     final period = _period;
+    final auth = ref.watch(authControllerProvider);
+    final canManage = auth is AuthAuthenticated && auth.user.canManageStaff;
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
@@ -83,6 +133,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const Text('Inicio', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           const SizedBox(height: 16),
           ErrorBanner(_error),
+          const Text('Período De Trabajo', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          const Text(
+            'Caja y resultados usan estas fechas para no perder días fuera del mes.',
+            style: TextStyle(color: AppColors.muted),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Desde *'),
+            subtitle: Text(formatDateOnly(_from)),
+            onTap: canManage ? () => _pickDate(isFrom: true) : null,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Hasta *'),
+            subtitle: Text(formatDateOnly(_to)),
+            onTap: canManage ? () => _pickDate(isFrom: false) : null,
+          ),
+          if (canManage)
+            PrimaryButton(label: 'Guardar Período', loading: _savingPeriod, onPressed: _savePeriod),
+          const SizedBox(height: 20),
           if (stats != null) ...[
             const Text('Operación De Hoy', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),

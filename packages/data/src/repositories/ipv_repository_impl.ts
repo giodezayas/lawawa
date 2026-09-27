@@ -81,7 +81,46 @@ export class IpvRepositoryImpl implements IpvRepository {
       throw new DomainError(error?.message ?? 'No se pudo crear el IPV.', InventoryErrorCodes.invalidInput);
     }
 
-    return mapIpvDocument(data);
+    await this.seedStockedCatalogLines(data.id);
+    const seeded = await this.getById(data.id);
+    return seeded ?? mapIpvDocument(data);
+  }
+
+  private async seedStockedCatalogLines(ipvId: string): Promise<void> {
+    const { data: catalog, error } = await this.client
+      .from('product_catalog')
+      .select('id, name, sale_price, replenishment_cost, stock_qty')
+      .eq('is_active', true)
+      .gt('stock_qty', 0)
+      .order('name');
+
+    if (error) {
+      throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
+    }
+
+    if (!catalog || catalog.length === 0) {
+      return;
+    }
+
+    const { error: insertError } = await this.client.from('ipv_lines').insert(
+      catalog.map((product, index) => ({
+        ipv_id: ipvId,
+        product_id: product.id,
+        product_name: product.name,
+        opening_qty: product.stock_qty,
+        inbound_qty: 0,
+        outbound_qty: 0,
+        sold_qty: 0,
+        sale_price: product.sale_price,
+        replenishment_cost: product.replenishment_cost,
+        inbound_adds_stock: false,
+        sort_order: index,
+      })),
+    );
+
+    if (insertError) {
+      throw new DomainError(insertError.message, InventoryErrorCodes.invalidInput);
+    }
   }
 
   async upsertLine(input: UpsertIpvLineInput): Promise<IpvLine> {
