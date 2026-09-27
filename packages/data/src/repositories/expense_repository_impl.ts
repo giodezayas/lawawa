@@ -1,10 +1,10 @@
 import {
   DomainError,
   InventoryErrorCodes,
+  PeriodReport,
   type CreateExpenseEntryInput,
   type ExpenseEntry,
   type ExpenseRepository,
-  type PeriodReport,
   type UpdateExpenseEntryInput,
   defaultBillingPeriod,
 } from '@wawa/domain';
@@ -87,7 +87,40 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
     if (error || data === null) {
       throw new DomainError(error?.message ?? 'No se pudo armar el corte.', InventoryErrorCodes.invalidInput);
     }
-    return mapPeriodReport(data);
+    const report = mapPeriodReport(data);
+    return PeriodReport.create({
+      ...report,
+      purchaseTotal: await this.sumPurchases(from, to),
+    });
+  }
+
+  private async sumPurchases(from: string, to: string): Promise<number> {
+    const { data: documents, error: documentsError } = await this.client
+      .from('purchase_documents')
+      .select('id')
+      .gte('purchased_on', from)
+      .lte('purchased_on', to);
+
+    if (documentsError) {
+      throw new DomainError(documentsError.message, InventoryErrorCodes.invalidInput);
+    }
+
+    const ids = (documents ?? []).map((row) => row.id);
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    const { data: lines, error: linesError } = await this.client
+      .from('purchase_lines')
+      .select('qty, unit_cost')
+      .in('purchase_id', ids);
+
+    if (linesError) {
+      throw new DomainError(linesError.message, InventoryErrorCodes.invalidInput);
+    }
+
+    const total = (lines ?? []).reduce((sum, line) => sum + Number(line.qty) * Number(line.unit_cost), 0);
+    return Math.round(total * 100) / 100;
   }
 
   async getBillingPeriod() {

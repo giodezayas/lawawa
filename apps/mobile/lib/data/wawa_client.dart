@@ -100,11 +100,25 @@ class WawaClient {
       final data = await _client.rpc('period_report', params: {'p_from': from, 'p_to': to});
       final row = Map<String, dynamic>.from(data as Map);
       final rawLines = (row['lines'] as List?) ?? [];
+      final docs = await _client
+          .from('purchase_documents')
+          .select('id')
+          .gte('purchased_on', from)
+          .lte('purchased_on', to);
+      final ids = (docs as List).map((item) => (item as Map)['id'] as String).toList();
+      var purchaseTotal = 0.0;
+      if (ids.isNotEmpty) {
+        final lines = await _client.from('purchase_lines').select('qty, unit_cost').inFilter('purchase_id', ids);
+        for (final item in lines as List) {
+          final line = Map<String, dynamic>.from(item as Map);
+          purchaseTotal += asNum(line['qty']) * asNum(line['unit_cost']);
+        }
+      }
       return PeriodReport(
         from: '${row['from']}',
         to: '${row['to']}',
         saleTotal: asNum(row['sale_total']),
-        purchaseTotal: asNum(row['purchase_total']),
+        purchaseTotal: (purchaseTotal * 100).round() / 100,
         grossProfit: asNum(row['gross_profit']),
         expenseTotal: asNum(row['expense_total']),
         utilidad: asNum(row['utilidad']),
