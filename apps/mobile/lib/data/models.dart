@@ -161,6 +161,7 @@ class PeriodReport {
     required this.from,
     required this.to,
     required this.saleTotal,
+    required this.purchaseTotal,
     required this.grossProfit,
     required this.expenseTotal,
     required this.utilidad,
@@ -173,6 +174,7 @@ class PeriodReport {
   final String from;
   final String to;
   final double saleTotal;
+  final double purchaseTotal;
   final double grossProfit;
   final double expenseTotal;
   final double utilidad;

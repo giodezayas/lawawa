@@ -16,6 +16,7 @@ export type PeriodReportProps = {
   readonly days: number;
   readonly taxRate: number;
   readonly saleTotal: number;
+  readonly purchaseTotal: number;
   readonly grossProfit: number;
   readonly expenseTotal: number;
   readonly utilidad: number;
@@ -50,5 +51,9 @@ export const PeriodReport = {
       return 'Mensual';
     }
     return 'Una Vez';
+  },
+
+  vsInvested(report: PeriodReport): number {
+    return Math.round((report.saleTotal - report.purchaseTotal) * 100) / 100;
   },
 };

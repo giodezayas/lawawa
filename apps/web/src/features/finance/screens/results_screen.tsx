@@ -112,10 +112,20 @@ export function ResultsScreen() {
         <>
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-primary">Ventas</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Venta</p>
                 <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(report.saleTotal)}</p>
+              </article>
+              <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                <p className="text-sm font-medium text-muted">Invertido</p>
+                <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(report.purchaseTotal)}</p>
+              </article>
+              <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                <p className="text-sm font-medium text-muted">Venta Vs Invertido</p>
+                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(PeriodReport.vsInvested(report))}`}>
+                  {formatMoney(PeriodReport.vsInvested(report))}
+                </p>
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Ganancia Bruta</p>

@@ -186,6 +186,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             StatCard(label: 'Te Quedas', value: formatMoney(period.net), tone: moneyColor(period.net)),
             const SizedBox(height: 8),
             StatCard(label: 'Venta Del Período', value: formatMoney(period.saleTotal)),
+            const SizedBox(height: 8),
+            StatCard(label: 'Invertido', value: formatMoney(period.purchaseTotal), tone: AppColors.danger),
+            const SizedBox(height: 8),
+            StatCard(
+              label: 'Venta Vs Invertido',
+              value: formatMoney(period.saleTotal - period.purchaseTotal),
+              tone: moneyColor(period.saleTotal - period.purchaseTotal),
+            ),
           ],
           if (_lowStock.isNotEmpty) ...[
             const SizedBox(height: 20),

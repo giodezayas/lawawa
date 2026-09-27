@@ -104,6 +104,7 @@ class WawaClient {
         from: '${row['from']}',
         to: '${row['to']}',
         saleTotal: asNum(row['sale_total']),
+        purchaseTotal: asNum(row['purchase_total']),
         grossProfit: asNum(row['gross_profit']),
         expenseTotal: asNum(row['expense_total']),
         utilidad: asNum(row['utilidad']),

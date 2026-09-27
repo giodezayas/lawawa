@@ -4,7 +4,7 @@ import {
   FIXED_TAX_RATE,
   User,
   type CashFlow,
-  type PeriodReport,
+  PeriodReport,
   Product,
   formatDateOnly,
   formatMoney,
@@ -145,7 +145,21 @@ export function DashboardScreen() {
               <h2 className="text-sm font-semibold text-primary">
                 Este Período{month ? ` · ${formatDateOnly(month.from)} — ${formatDateOnly(month.to)}` : ''} · Impuesto {taxPercent}%
               </h2>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Venta Del Período</p>
+                  <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(month.saleTotal)}</p>
+                </article>
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Invertido</p>
+                  <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(month.purchaseTotal)}</p>
+                </article>
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Venta Vs Invertido</p>
+                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(PeriodReport.vsInvested(month))}`}>
+                    {formatMoney(PeriodReport.vsInvested(month))}
+                  </p>
+                </article>
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Impuestos A Pagar</p>
                   <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(month.tax)}</p>
@@ -155,10 +169,6 @@ export function DashboardScreen() {
                   <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(month.net)}`}>
                     {formatMoney(month.net)}
                   </p>
-                </article>
-                <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                  <p className="text-sm font-medium text-muted">Venta Del Período</p>
-                  <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(month.saleTotal)}</p>
                 </article>
               </div>
             </section>
