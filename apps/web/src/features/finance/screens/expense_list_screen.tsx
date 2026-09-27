@@ -72,7 +72,7 @@ export function ExpenseListScreen() {
         </div>
         <Link
           to="/finanzas/gastos/nuevo"
-          className="btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
+          className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
         >
           Registrar Gasto
         </Link>
@@ -92,7 +92,7 @@ export function ExpenseListScreen() {
                   Concepto
                 </button>
               </th>
-              <th className="px-4 py-3 font-semibold">Notas</th>
+              <th className="hidden px-4 py-3 font-semibold md:table-cell">Notas</th>
               <th className="px-4 py-3 font-semibold">Frecuencia</th>
               <th className="text-right">
                 <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('amount')}>
@@ -114,7 +114,7 @@ export function ExpenseListScreen() {
                 <tr key={entry.id} className="border-t border-line">
                   <td className="px-4 py-3">{formatDateOnly(entry.occurredOn)}</td>
                   <td className="px-4 py-3">{entry.name}</td>
-                  <td className="px-4 py-3">{entry.notes || '—'}</td>
+                  <td className="hidden px-4 py-3 md:table-cell">{entry.notes || '—'}</td>
                   <td className="px-4 py-3">{ExpenseEntry.cadenceLabel(entry.cadence)}</td>
                   <td className="px-4 py-3 text-right text-danger">{formatMoney(entry.amount)}</td>
                   <td className="px-4 py-3 text-right">

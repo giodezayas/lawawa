@@ -98,7 +98,7 @@ export function ResultsScreen() {
         {report?.closed ? (
           <p className="text-sm font-semibold text-danger">Período Cerrado</p>
         ) : canManage ? (
-          <PrimaryButton type="button" loading={closing} loadingLabel="Cerrando..." onClick={() => void closePeriod()}>
+          <PrimaryButton type="button" className="page-cta" loading={closing} loadingLabel="Cerrando..." onClick={() => void closePeriod()}>
             Cerrar Período
           </PrimaryButton>
         ) : null}
@@ -107,7 +107,7 @@ export function ResultsScreen() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className={`h-12 rounded-2xl px-5 text-sm font-semibold ${startDay === 1 ? 'btn-primary' : 'btn-outline'}`}
+            className={`h-12 min-w-[10rem] flex-1 rounded-2xl px-5 text-sm font-semibold sm:flex-none ${startDay === 1 ? 'btn-primary' : 'btn-outline'}`}
             disabled={savingPeriod}
             onClick={() => void saveStartDay(1)}
           >
@@ -115,7 +115,7 @@ export function ResultsScreen() {
           </button>
           <button
             type="button"
-            className={`h-12 rounded-2xl px-5 text-sm font-semibold ${startDay === 20 ? 'btn-primary' : 'btn-outline'}`}
+            className={`h-12 min-w-[10rem] flex-1 rounded-2xl px-5 text-sm font-semibold sm:flex-none ${startDay === 20 ? 'btn-primary' : 'btn-outline'}`}
             disabled={savingPeriod}
             onClick={() => void saveStartDay(20)}
           >

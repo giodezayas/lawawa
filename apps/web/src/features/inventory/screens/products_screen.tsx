@@ -114,7 +114,7 @@ export function ProductsScreen() {
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
       <form
         onSubmit={(event) => void handleSubmit(event)}
-        className="grid gap-4 rounded-3xl border border-line bg-surface p-5 md:grid-cols-4 md:items-end"
+        className="grid gap-4 rounded-3xl border border-line bg-surface p-5 sm:grid-cols-2 lg:grid-cols-4 lg:items-end"
       >
         <TextField
           id="product-name"
@@ -177,8 +177,8 @@ export function ProductsScreen() {
                   Precio De Venta
                 </button>
               </th>
-              <th className="px-4 py-3 text-right font-semibold">Última Compra</th>
-              <th className="text-right">
+              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Última Compra</th>
+              <th className="hidden text-right md:table-cell">
                 <button
                   type="button"
                   className="px-4 py-3 font-semibold"
@@ -192,7 +192,7 @@ export function ProductsScreen() {
                   Stock
                 </button>
               </th>
-              <th className="px-4 py-3 font-semibold">Alerta</th>
+              <th className="hidden px-4 py-3 font-semibold md:table-cell">Alerta</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -212,12 +212,12 @@ export function ProductsScreen() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-right">{formatMoney(product.salePrice)}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="hidden px-4 py-3 text-right md:table-cell">
                     {product.lastPurchasePrice === null ? '—' : formatMoney(product.lastPurchasePrice)}
                   </td>
-                  <td className="px-4 py-3 text-right">{formatMoney(product.replenishmentCost)}</td>
+                  <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(product.replenishmentCost)}</td>
                   <td className="px-4 py-3 text-right">{product.stockQty}</td>
-                  <td className="px-4 py-3">
+                  <td className="hidden px-4 py-3 md:table-cell">
                     {Product.isLowStock(product) ? (
                       <span className="font-semibold text-danger">Bajo Stock</span>
                     ) : (

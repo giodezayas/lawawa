@@ -76,7 +76,7 @@ export function UserListScreen() {
         </div>
         <Link
           to="/equipo/usuarios/nuevo"
-          className="btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
+          className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
         >
           Invitar Usuario
         </Link>

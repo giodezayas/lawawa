@@ -23,6 +23,25 @@ body,
   min-height: 100%;
 }
 
+html {
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  .page-cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    font-size: 0.8125rem;
+  }
+}
+
 body {
   margin: 0;
   background: #ffffff;

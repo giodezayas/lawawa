@@ -68,7 +68,7 @@ export function IpvListScreen() {
         </div>
         <Link
           to="/inventario/ipv/nuevo"
-          className="btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
+          className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
         >
           Crear IPV
         </Link>
@@ -89,9 +89,9 @@ export function IpvListScreen() {
                 </button>
               </th>
               <th className="px-4 py-3 text-right font-semibold">Total Venta</th>
-              <th className="px-4 py-3 text-right font-semibold">Efectivo</th>
-              <th className="px-4 py-3 text-right font-semibold">Transferencia</th>
-              <th className="px-4 py-3 text-right font-semibold">Ganancia Bruta</th>
+              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Efectivo</th>
+              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Transferencia</th>
+              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Ganancia Bruta</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -113,9 +113,9 @@ export function IpvListScreen() {
                     <td className="px-4 py-3 text-right">
                       {document.lines.length > 0 ? formatMoney(saleTotal) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right">{formatMoney(document.cashCollected)}</td>
-                    <td className="px-4 py-3 text-right">{formatMoney(document.transferCollected)}</td>
-                    <td className={`px-4 py-3 text-right ${document.lines.length > 0 ? moneyTone(profit) : ''}`}>
+                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.cashCollected)}</td>
+                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.transferCollected)}</td>
+                    <td className={`hidden px-4 py-3 text-right md:table-cell ${document.lines.length > 0 ? moneyTone(profit) : ''}`}>
                       {document.lines.length > 0 ? formatMoney(profit) : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">

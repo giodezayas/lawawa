@@ -24,7 +24,7 @@ export function LoginScreen() {
       <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-10 md:grid-cols-2 md:px-8">
         <section>
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-primary">Uso Interno</p>
-          <h1 className="mt-4 max-w-md text-4xl font-extrabold leading-tight md:text-6xl">
+          <h1 className="mt-4 max-w-md text-3xl font-extrabold leading-tight sm:text-4xl md:text-6xl">
             La Wawa
             <span className="block text-primary">Gestión</span>
           </h1>

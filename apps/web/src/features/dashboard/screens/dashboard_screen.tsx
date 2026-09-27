@@ -56,7 +56,7 @@ export function DashboardScreen() {
           <p className="text-sm font-semibold text-primary">Hoy</p>
           <h1 className="text-2xl font-extrabold">Inicio</h1>
         </div>
-        <Link to="/finanzas/resultados" className="btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold">
+        <Link to="/finanzas/resultados" className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold">
           Ver Resultados
         </Link>
       </div>
