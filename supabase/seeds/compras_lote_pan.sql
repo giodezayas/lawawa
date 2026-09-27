@@ -1,5 +1,5 @@
 -- Pan diario. Fecha de lote real. Efectivo. Idempotente por producto+día.
--- 5–6: 15 Pan Bon ×420. 7–8 y 11–14: 10×420. 9: hamburguesa. 10: 10 Pan Bon ×420.
+-- 5–6: 15 Pan Bon ×420. 7–8 y 11–14: 10×420. 9: hamburguesa. 10: no compra (entrada = a la venta).
 
 do $$
 declare
@@ -34,7 +34,6 @@ begin
         (date '2026-09-07', 'Pan Bon', 10, 420),
         (date '2026-09-08', 'Pan Bon', 10, 420),
         (date '2026-09-09', 'Pan De Hamburguesa', 10, 480),
-        (date '2026-09-10', 'Pan Bon', 10, 420),
         (date '2026-09-11', 'Pan Bon', 10, 420),
         (date '2026-09-12', 'Pan Bon', 10, 420),
         (date '2026-09-13', 'Pan Bon', 10, 420),

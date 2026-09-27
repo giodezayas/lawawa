@@ -1,5 +1,5 @@
--- IPV 10 sep 2026. Entrada = a la venta, no compra (compras ya registradas).
--- Azúcar 5 kg y 5 lb sí suman: se embolsan del saco. Transferencia 10470.
+-- IPV 11 sep 2026. Entrada = a la venta (Pan Bon y Cerveza W ya comprados).
+-- Transferencia 19340, resto efectivo.
 
 do $$
 declare
@@ -9,7 +9,7 @@ declare
   pack public.product_packs;
   bulk_left numeric(12, 3);
   consume numeric(12, 3);
-  work date := date '2026-09-10';
+  work date := date '2026-09-11';
 begin
   select id into actor
     from public.profiles
@@ -20,52 +20,13 @@ begin
     raise exception 'No hay usuario en profiles para created_by.';
   end if;
 
-  perform set_config('wawa.bypass_ipv_protect', 'on', true);
-
-  delete from public.purchase_documents d
-  where d.purchased_on = work
-    and exists (
-      select 1
-      from public.purchase_lines pl
-      join public.products p on p.id = pl.product_id
-      where pl.purchase_id = d.id
-        and p.name = 'Pan Bon'
-    )
-    and not exists (
-      select 1
-      from public.purchase_lines pl
-      join public.products p on p.id = pl.product_id
-      where pl.purchase_id = d.id
-        and p.name <> 'Pan Bon'
-    );
-
   if exists (select 1 from public.ipv_documents where work_date = work) then
     perform set_config('wawa.bypass_ipv_protect', 'on', true);
-    update public.ipv_lines ipv_row
-    set
-      inbound_qty = v.inbound_qty,
-      inbound_adds_stock = v.adds_stock,
-      opening_qty = coalesce((
-        select sum(m.qty)
-        from public.stock_movements m
-        where m.product_id = ipv_row.product_id
-          and m.occurred_on <= work
-          and (m.ipv_line_id is null or m.ipv_line_id <> ipv_row.id)
-      ), 0)
-    from (
-      values
-        ('Pan Bon', 10::numeric, false),
-        ('Detergente Yamy 900g', 15, false)
-    ) as v(name, inbound_qty, adds_stock)
-    join public.products p on p.name = v.name
-    where ipv_row.ipv_id = (select id from public.ipv_documents where work_date = work)
-      and ipv_row.product_id = p.id;
-
     update public.ipv_documents doc
     set
-      transfer_collected = 10470,
+      transfer_collected = 19340,
       cash_collected = greatest(
-        (select coalesce(sum(row.sale_total), 0) from public.ipv_lines row where row.ipv_id = doc.id) - 10470,
+        (select coalesce(sum(row.sale_total), 0) from public.ipv_lines row where row.ipv_id = doc.id) - 19340,
         0
       )
     where doc.work_date = work;
@@ -99,33 +60,32 @@ begin
     v.sort_order
   from (
     values
-      ('Papel Higiénico', 0::numeric, 2::numeric, 690::numeric, false, 1),
-      ('Pasta De Tomate', 0, 0, 650, false, 2),
-      ('Azúcar 1 kg', 5, 2, 1100, true, 3),
-      ('Azúcar 1 lb', 5, 0, 500, true, 4),
-      ('Arroz 1 kg', 0, 3, 800, false, 5),
-      ('Gomitas', 0, 3, 350, false, 6),
-      ('Mega', 0, 1, 250, false, 7),
-      ('Keks Azul', 0, 2, 220, false, 8),
-      ('Keks Morados', 0, 3, 220, false, 9),
-      ('Pan De Hamburguesa', 0, 3, 500, false, 10),
-      ('Pan Bon', 10, 6, 500, false, 11),
-      ('Sazón Tropical Naranja', 0, 1, 70, false, 12),
-      ('Sazón Tropical Verde', 0, 2, 70, false, 13),
-      ('Sazón Guama', 0, 6, 60, false, 14),
-      ('Sazón Mina', 0, 0, 60, false, 15),
-      ('Cuadrito De Pollo', 0, 0, 30, false, 16),
-      ('Ron HC', 0, 0, 800, false, 17),
-      ('Galletas Sala Saltbock', 0, 2, 270, false, 18),
-      ('Jabón Kare 75g', 0, 26, 300, false, 19),
-      ('Detergente Yamy 900g', 15, 7, 850, false, 20),
-      ('Refresco Instantáneo Golden', 0, 61, 150, false, 21),
-      ('Cono Richy', 0, 4, 190, false, 22),
-      ('Chupa Chups', 0, 13, 80, false, 23),
-      ('Niks', 0, 3, 220, false, 24),
-      ('Vinagre 300 ml', 0, 2, 300, false, 25),
-      ('Agua Ciego Montero 500 ml', 0, 1, 220, false, 26),
-      ('Cerveza Cristal', 0, 8, 500, false, 27)
+      ('Papel Higiénico', 0::numeric, 1::numeric, 690::numeric, false, 1),
+      ('Pasta De Tomate', 0, 1, 650, false, 2),
+      ('Azúcar 1 kg', 0, 0, 1100, false, 3),
+      ('Azúcar 1 lb', 0, 2, 500, false, 4),
+      ('Arroz 1 kg', 0, 2, 800, false, 5),
+      ('Gomitas', 0, 6, 350, false, 6),
+      ('Keks Azul', 0, 5, 220, false, 7),
+      ('Keks Morados', 0, 1, 220, false, 8),
+      ('Pan Bon', 10, 10, 500, false, 9),
+      ('Sazón Tropical Naranja', 0, 4, 70, false, 10),
+      ('Sazón Tropical Verde', 0, 1, 70, false, 11),
+      ('Sazón Guama', 0, 3, 60, false, 12),
+      ('Sazón Mina', 0, 0, 60, false, 13),
+      ('Cuadrito De Pollo', 0, 2, 30, false, 14),
+      ('Jaba', 0, 2, 10, false, 15),
+      ('Ron HC', 0, 0, 800, false, 16),
+      ('Galletas Sala Saltbock', 0, 4, 270, false, 17),
+      ('Jabón Kare 75g', 0, 3, 300, false, 18),
+      ('Detergente Yamy 900g', 0, 2, 850, false, 19),
+      ('Refresco Instantáneo Golden', 0, 42, 150, false, 20),
+      ('Cono Richy', 0, 6, 190, false, 21),
+      ('Chupa Chups', 0, 2, 80, false, 22),
+      ('Niks', 0, 15, 220, false, 23),
+      ('Vinagre 300 ml', 0, 1, 300, false, 24),
+      ('Agua Ciego Montero 500 ml', 0, 6, 220, false, 25),
+      ('Cerveza W', 48, 47, 460, false, 26)
   ) as v(name, inbound_qty, sold_qty, sale_price, adds_stock, sort_order)
   join public.products p on p.name = v.name;
 
@@ -135,7 +95,7 @@ begin
     where ipv_id = ipv
       and closing_qty < 0
   ) then
-    raise exception 'Hay un producto con vendidos por encima del stock del 10 sep.';
+    raise exception 'Hay un producto con vendidos por encima del stock del 11 sep.';
   end if;
 
   for ipv_line in
@@ -190,16 +150,16 @@ begin
 
   update public.ipv_documents
   set
-    transfer_collected = 10470,
+    transfer_collected = 19340,
     cash_collected = (
       select coalesce(sum(sale_total), 0) from public.ipv_lines where ipv_id = ipv
-    ) - 10470
+    ) - 19340
   where id = ipv;
 
   if (
     select cash_collected from public.ipv_documents where id = ipv
   ) < 0 then
-    raise exception 'La transferencia de 10470 supera la venta del IPV.';
+    raise exception 'La transferencia de 19340 supera la venta del IPV.';
   end if;
 
   update public.ipv_documents
