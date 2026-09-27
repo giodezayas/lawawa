@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
+import { DateRangeFields, ScrollTable, TableSpinner, inDateRange } from '../../../shared/ui/list_table';
 import { moneyTone } from '../../../shared/ui/money_tone';
 
 type SortKey = 'workDate' | 'status';
@@ -12,16 +13,28 @@ export function IpvListScreen() {
   const confirm = useConfirm();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof container.listIpvs.execute>>>([]);
   const [pageError, setPageError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('workDate');
   const [sortAsc, setSortAsc] = useState(false);
   const [deletingId, setDeletingId] = useState('');
 
   async function load() {
-    setRows(await container.listIpvs.execute());
+    setLoading(true);
+    try {
+      const period = await container.getBillingPeriod.execute();
+      setRows(await container.listIpvs.execute());
+      setFromDate((current) => current || period.from);
+      setToDate((current) => current || period.to);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     void load().catch((error) => {
+      setLoading(false);
       setPageError(error instanceof DomainError ? error.message : 'No se pudieron cargar los IPV.');
     });
   }, [container]);
@@ -42,12 +55,17 @@ export function IpvListScreen() {
     }
   }
 
+  const filtered = useMemo(
+    () => rows.filter((document) => inDateRange(document.workDate, fromDate, toDate)),
+    [rows, fromDate, toDate],
+  );
+
   const sorted = useMemo(() => {
-    return rows.slice().sort((left, right) => {
+    return filtered.slice().sort((left, right) => {
       const direction = sortAsc ? 1 : -1;
       return left[sortKey].localeCompare(right[sortKey]) * direction;
     });
-  }, [rows, sortKey, sortAsc]);
+  }, [filtered, sortKey, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -75,9 +93,20 @@ export function IpvListScreen() {
         </Link>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
-      <div className="overflow-x-auto rounded-3xl border border-line bg-surface">
+      <DateRangeFields
+        fromId="ipv-from"
+        toId="ipv-to"
+        from={fromDate}
+        to={toDate}
+        onFrom={setFromDate}
+        onTo={setToDate}
+      />
+      <p className="text-sm text-muted">
+        {loading ? 'Cargando IPV...' : `${sorted.length} IPV En El Rango`}
+      </p>
+      <ScrollTable>
         <table className="min-w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b border-line text-left">
               <th>
                 <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('workDate')}>
@@ -97,10 +126,12 @@ export function IpvListScreen() {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {loading ? (
+              <TableSpinner colSpan={7} label="Cargando IPV..." />
+            ) : sorted.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                  No hay IPV todavía. Crea el del día.
+                  {rows.length === 0 ? 'No hay IPV todavía. Crea el del día.' : 'No hay IPV en esas fechas.'}
                 </td>
               </tr>
             ) : (
@@ -140,7 +171,7 @@ export function IpvListScreen() {
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }

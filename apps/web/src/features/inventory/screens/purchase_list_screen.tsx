@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { CashFlowSummary } from '../../../shared/ui/cash_flow_summary';
+import { DateRangeFields, ScrollTable, TableSpinner, inDateRange } from '../../../shared/ui/list_table';
 
 type SortKey = 'purchasedOn' | 'total';
 
@@ -13,22 +14,33 @@ export function PurchaseListScreen() {
   const [rows, setRows] = useState<Awaited<ReturnType<typeof container.listPurchases.execute>>>([]);
   const [flow, setFlow] = useState<CashFlow | null>(null);
   const [pageError, setPageError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('purchasedOn');
   const [sortAsc, setSortAsc] = useState(false);
   const [deletingId, setDeletingId] = useState('');
 
   async function load() {
-    const period = await container.getBillingPeriod.execute();
-    const [nextRows, nextFlow] = await Promise.all([
-      container.listPurchases.execute(),
-      container.getCashFlow.execute(period.from, period.to),
-    ]);
-    setRows(nextRows);
-    setFlow(nextFlow);
+    setLoading(true);
+    try {
+      const period = await container.getBillingPeriod.execute();
+      const [nextRows, nextFlow] = await Promise.all([
+        container.listPurchases.execute(),
+        container.getCashFlow.execute(period.from, period.to),
+      ]);
+      setRows(nextRows);
+      setFlow(nextFlow);
+      setFromDate((current) => current || period.from);
+      setToDate((current) => current || period.to);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     void load().catch((error) => {
+      setLoading(false);
       setPageError(error instanceof DomainError ? error.message : 'No se pudieron cargar las compras.');
     });
   }, [container]);
@@ -49,15 +61,20 @@ export function PurchaseListScreen() {
     }
   }
 
+  const filtered = useMemo(
+    () => rows.filter((document) => inDateRange(document.purchasedOn, fromDate, toDate)),
+    [rows, fromDate, toDate],
+  );
+
   const sorted = useMemo(() => {
-    return rows.slice().sort((left, right) => {
+    return filtered.slice().sort((left, right) => {
       const direction = sortAsc ? 1 : -1;
       if (sortKey === 'purchasedOn') {
         return left.purchasedOn.localeCompare(right.purchasedOn) * direction;
       }
       return (PurchaseDocument.total(left) - PurchaseDocument.total(right)) * direction;
     });
-  }, [rows, sortKey, sortAsc]);
+  }, [filtered, sortKey, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -87,9 +104,20 @@ export function PurchaseListScreen() {
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
       {flow ? <CashFlowSummary flow={flow} title="Caja Del Período" /> : null}
-      <div className="overflow-x-auto rounded-3xl border border-line bg-surface">
+      <DateRangeFields
+        fromId="purchase-from"
+        toId="purchase-to"
+        from={fromDate}
+        to={toDate}
+        onFrom={setFromDate}
+        onTo={setToDate}
+      />
+      <p className="text-sm text-muted">
+        {loading ? 'Cargando Compras...' : `${sorted.length} Compra${sorted.length === 1 ? '' : 's'} En El Rango`}
+      </p>
+      <ScrollTable>
         <table className="min-w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b border-line text-left">
               <th>
                 <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('purchasedOn')}>
@@ -107,10 +135,14 @@ export function PurchaseListScreen() {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {loading ? (
+              <TableSpinner colSpan={5} label="Cargando Compras..." />
+            ) : sorted.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  No hay compras. Registra la primera para que el catálogo tenga stock.
+                  {rows.length === 0
+                    ? 'No hay compras. Registra la primera para que el catálogo tenga stock.'
+                    : 'No hay compras en esas fechas.'}
                 </td>
               </tr>
             ) : (
@@ -142,7 +174,7 @@ export function PurchaseListScreen() {
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }

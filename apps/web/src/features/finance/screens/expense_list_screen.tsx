@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
+import { DateRangeFields, ScrollTable, TableSpinner, inDateRange } from '../../../shared/ui/list_table';
 
 type SortKey = 'occurredOn' | 'name' | 'amount';
 
@@ -11,22 +12,39 @@ export function ExpenseListScreen() {
   const confirm = useConfirm();
   const [rows, setRows] = useState<ExpenseEntry[]>([]);
   const [pageError, setPageError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('occurredOn');
   const [sortAsc, setSortAsc] = useState(false);
   const [deletingId, setDeletingId] = useState('');
 
   async function load() {
-    setRows(await container.listExpenseEntries.execute());
+    setLoading(true);
+    try {
+      const period = await container.getBillingPeriod.execute();
+      setRows(await container.listExpenseEntries.execute());
+      setFromDate((current) => current || period.from);
+      setToDate((current) => current || period.to);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     void load().catch((error) => {
+      setLoading(false);
       setPageError(error instanceof DomainError ? error.message : 'No se pudieron cargar los gastos.');
     });
   }, [container]);
 
+  const filtered = useMemo(
+    () => rows.filter((entry) => inDateRange(entry.occurredOn, fromDate, toDate)),
+    [rows, fromDate, toDate],
+  );
+
   const sorted = useMemo(() => {
-    return rows.slice().sort((left, right) => {
+    return filtered.slice().sort((left, right) => {
       const direction = sortAsc ? 1 : -1;
       if (sortKey === 'occurredOn') {
         return left.occurredOn.localeCompare(right.occurredOn) * direction;
@@ -36,7 +54,7 @@ export function ExpenseListScreen() {
       }
       return (left.amount - right.amount) * direction;
     });
-  }, [rows, sortKey, sortAsc]);
+  }, [filtered, sortKey, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -80,9 +98,20 @@ export function ExpenseListScreen() {
         </Link>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
-      <div className="overflow-x-auto rounded-3xl border border-line bg-surface">
+      <DateRangeFields
+        fromId="expense-from"
+        toId="expense-to"
+        from={fromDate}
+        to={toDate}
+        onFrom={setFromDate}
+        onTo={setToDate}
+      />
+      <p className="text-sm text-muted">
+        {loading ? 'Cargando Gastos...' : `${sorted.length} Gasto${sorted.length === 1 ? '' : 's'} En El Rango`}
+      </p>
+      <ScrollTable>
         <table className="min-w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b border-line text-left">
               <th>
                 <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('occurredOn')}>
@@ -105,10 +134,14 @@ export function ExpenseListScreen() {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {loading ? (
+              <TableSpinner colSpan={6} label="Cargando Gastos..." />
+            ) : sorted.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                  No hay gastos. Pulsa Registrar Gasto para añadir el primero.
+                  {rows.length === 0
+                    ? 'No hay gastos. Pulsa Registrar Gasto para añadir el primero.'
+                    : 'No hay gastos en esas fechas.'}
                 </td>
               </tr>
             ) : (
@@ -139,7 +172,7 @@ export function ExpenseListScreen() {
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }

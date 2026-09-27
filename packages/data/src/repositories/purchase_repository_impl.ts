@@ -11,6 +11,7 @@ import type { AppSupabaseClient } from '../supabase/client';
 import type { Database } from '../supabase/database.types';
 
 type PurchaseRow = Database['public']['Tables']['purchase_documents']['Row'];
+type LineRow = Database['public']['Tables']['purchase_lines']['Row'];
 
 export class PurchaseRepositoryImpl implements PurchaseRepository {
   constructor(private readonly client: AppSupabaseClient) {}
@@ -25,11 +26,49 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
       throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
     }
 
-    const documents = [];
-    for (const row of data ?? []) {
-      documents.push(await this.load(row.id, row));
+    const documents = data ?? [];
+    if (documents.length === 0) {
+      return [];
     }
-    return documents;
+
+    const { data: lines, error: linesError } = await this.client
+      .from('purchase_lines')
+      .select('*')
+      .in(
+        'purchase_id',
+        documents.map((row) => row.id),
+      );
+
+    if (linesError) {
+      throw new DomainError(linesError.message, InventoryErrorCodes.invalidInput);
+    }
+
+    const productIds = [...new Set((lines ?? []).map((line) => line.product_id))];
+    const names = new Map<string, string>();
+
+    if (productIds.length > 0) {
+      const { data: products, error: productsError } = await this.client
+        .from('products')
+        .select('id, name')
+        .in('id', productIds);
+
+      if (productsError) {
+        throw new DomainError(productsError.message, InventoryErrorCodes.invalidInput);
+      }
+
+      for (const product of products ?? []) {
+        names.set(product.id, product.name);
+      }
+    }
+
+    const linesByPurchase = new Map<string, Array<{ row: LineRow; productName: string }>>();
+    for (const line of lines ?? []) {
+      const bucket = linesByPurchase.get(line.purchase_id) ?? [];
+      bucket.push({ row: line, productName: names.get(line.product_id) ?? 'Producto' });
+      linesByPurchase.set(line.purchase_id, bucket);
+    }
+
+    return documents.map((row) => mapPurchaseDocument(row, linesByPurchase.get(row.id) ?? []));
   }
 
   async getById(id: string): Promise<PurchaseDocument | null> {

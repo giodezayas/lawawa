@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
+import { ScrollTable, TableSpinner } from '../../../shared/ui/list_table';
+import { TextField } from '../../../shared/ui/text_field';
 
 type SortKey = 'fullName' | 'email' | 'role';
 
@@ -11,25 +13,44 @@ export function UserListScreen() {
   const confirm = useConfirm();
   const [rows, setRows] = useState<User[]>([]);
   const [pageError, setPageError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('fullName');
   const [sortAsc, setSortAsc] = useState(true);
   const [deletingId, setDeletingId] = useState('');
 
   async function load() {
     if (!user) {
+      setLoading(false);
       return;
     }
-    setRows(await container.listUsers.execute(user));
+    setLoading(true);
+    try {
+      setRows(await container.listUsers.execute(user));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     void load().catch((error) => {
+      setLoading(false);
       setPageError(error instanceof DomainError ? error.message : 'No se pudo cargar el equipo.');
     });
   }, [container, user]);
 
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) {
+      return rows;
+    }
+    return rows.filter((row) => {
+      return User.displayName(row).toLowerCase().includes(needle) || row.email.toLowerCase().includes(needle);
+    });
+  }, [rows, query]);
+
   const sorted = useMemo(() => {
-    return rows.slice().sort((left, right) => {
+    return filtered.slice().sort((left, right) => {
       const direction = sortAsc ? 1 : -1;
       if (sortKey === 'role') {
         return User.roleLabel(left.role).localeCompare(User.roleLabel(right.role)) * direction;
@@ -38,7 +59,7 @@ export function UserListScreen() {
       const rightValue = sortKey === 'fullName' ? User.displayName(right) : right.email;
       return leftValue.localeCompare(rightValue) * direction;
     });
-  }, [rows, sortKey, sortAsc]);
+  }, [filtered, sortKey, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -84,9 +105,18 @@ export function UserListScreen() {
         </Link>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
-      <div className="overflow-x-auto rounded-3xl border border-line bg-surface">
+      <TextField
+        id="user-search"
+        label="Buscar"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <p className="text-sm text-muted">
+        {loading ? 'Cargando Usuarios...' : `${sorted.length} Usuario${sorted.length === 1 ? '' : 's'}`}
+      </p>
+      <ScrollTable>
         <table className="min-w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b border-line text-left">
               <th>
                 <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('fullName')}>
@@ -108,10 +138,12 @@ export function UserListScreen() {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {loading ? (
+              <TableSpinner colSpan={5} label="Cargando Usuarios..." />
+            ) : sorted.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-muted">
-                  No hay usuarios para mostrar.
+                  {rows.length === 0 ? 'No hay usuarios para mostrar.' : 'No hay usuarios con esa búsqueda.'}
                 </td>
               </tr>
             ) : (
@@ -143,7 +175,7 @@ export function UserListScreen() {
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }

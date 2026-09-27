@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
+import { ScrollTable, TableSpinner } from '../../../shared/ui/list_table';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
@@ -20,30 +21,45 @@ export function ProductsScreen() {
   const [nameError, setNameError] = useState('');
   const [pageError, setPageError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const [deletingId, setDeletingId] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortAsc, setSortAsc] = useState(true);
 
   async function load() {
-    const rows = await container.listProducts.execute();
-    setProducts(rows);
+    setListLoading(true);
+    try {
+      setProducts(await container.listProducts.execute());
+    } finally {
+      setListLoading(false);
+    }
   }
 
   useEffect(() => {
     void load().catch((error) => {
+      setListLoading(false);
       setPageError(error instanceof DomainError ? error.message : 'No se pudo cargar el catálogo.');
     });
   }, [container]);
 
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) {
+      return products;
+    }
+    return products.filter((product) => product.name.toLowerCase().includes(needle));
+  }, [products, query]);
+
   const sorted = useMemo(() => {
-    return products.slice().sort((left, right) => {
+    return filtered.slice().sort((left, right) => {
       const direction = sortAsc ? 1 : -1;
       if (sortKey === 'name') {
         return left.name.localeCompare(right.name) * direction;
       }
       return (left[sortKey] - right[sortKey]) * direction;
     });
-  }, [products, sortKey, sortAsc]);
+  }, [filtered, sortKey, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -154,9 +170,20 @@ export function ProductsScreen() {
           Agregar Producto
         </PrimaryButton>
       </form>
-      <div className="overflow-x-auto rounded-3xl border border-line bg-surface">
+      <TextField
+        id="product-search"
+        label="Buscar"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <p className="text-sm text-muted">
+        {listLoading
+          ? 'Cargando Productos...'
+          : `${sorted.length} Producto${sorted.length === 1 ? '' : 's'}`}
+      </p>
+      <ScrollTable>
         <table className="min-w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b border-line text-left">
               <th>
                 <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('name')}>
@@ -188,10 +215,14 @@ export function ProductsScreen() {
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 ? (
+            {listLoading ? (
+              <TableSpinner colSpan={7} label="Cargando Productos..." />
+            ) : sorted.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                  Todavía no hay productos. Agrega el primero y luego cárgale una compra.
+                  {products.length === 0
+                    ? 'Todavía no hay productos. Agrega el primero y luego cárgale una compra.'
+                    : 'No hay productos con ese nombre.'}
                 </td>
               </tr>
             ) : (
@@ -235,7 +266,7 @@ export function ProductsScreen() {
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </div>
   );
 }
