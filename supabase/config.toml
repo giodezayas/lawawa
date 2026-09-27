@@ -1,0 +1,15 @@
+# Config mínima para CLI local. El uso previsto es el plan gratuito en la nube.
+project_id = "la-wawa-gestion"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+enable_signup = false

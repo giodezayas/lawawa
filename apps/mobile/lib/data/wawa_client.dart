@@ -1,0 +1,599 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/errors/domain_error.dart';
+import '../core/format.dart';
+import '../features/auth/data/mappers/user_mapper.dart';
+import 'models.dart';
+
+class WawaClient {
+  WawaClient(this._client);
+
+  final SupabaseClient _client;
+
+  Future<T> _run<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on PostgrestException catch (error) {
+      throw DomainError(error.message, 'ERR');
+    }
+  }
+
+  ProductRow _product(Map<String, dynamic> row) {
+    return ProductRow(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      salePrice: asNum(row['sale_price']),
+      replenishmentCost: asNum(row['replenishment_cost']),
+      lastPurchasePrice: asNum(row['last_purchase_price'] ?? row['purchase_price']),
+      minStock: asNum(row['min_stock']),
+      stockQty: asNum(row['stock_qty']),
+      isActive: row['is_active'] as bool? ?? true,
+    );
+  }
+
+  IpvLineRow _ipvLine(Map<String, dynamic> row) {
+    return IpvLineRow(
+      id: row['id'] as String,
+      productId: row['product_id'] as String,
+      productName: row['product_name'] as String,
+      openingQty: asNum(row['opening_qty']),
+      inboundQty: asNum(row['inbound_qty']),
+      outboundQty: asNum(row['outbound_qty']),
+      soldQty: asNum(row['sold_qty']),
+      closingQty: asNum(row['closing_qty']),
+      salePrice: asNum(row['sale_price']),
+      replenishmentCost: asNum(row['replenishment_cost']),
+      saleTotal: asNum(row['sale_total']),
+      grossProfit: asNum(row['gross_profit']),
+      inboundAddsStock: row['inbound_adds_stock'] as bool? ?? false,
+    );
+  }
+
+  Future<DashStats> dashboardStats() {
+    return _run(() async {
+      final row = await _client.from('dashboard_stats').select().maybeSingle();
+      if (row == null) {
+        throw const DomainError('No se pudieron cargar las estadísticas.', 'ERR');
+      }
+      return DashStats(
+        saleToday: asNum(row['sale_today']),
+        profitToday: asNum(row['profit_today']),
+        ipvTodayStatus: (row['ipv_today_status'] as String?) ?? '',
+      );
+    });
+  }
+
+  Future<int> billingStartDay() {
+    return _run(() async {
+      final row = await _client.from('business_settings').select('billing_start_day').limit(1).maybeSingle();
+      return (row?['billing_start_day'] as num?)?.toInt() ?? 1;
+    });
+  }
+
+  Future<int> setBillingStartDay(int day) {
+    return _run(() async {
+      final existing = await _client.from('business_settings').select('id').limit(1).maybeSingle();
+      if (existing == null) {
+        throw const DomainError('No hay ajustes del negocio.', 'ERR');
+      }
+      final row = await _client
+          .from('business_settings')
+          .update({'billing_start_day': day})
+          .eq('id', existing['id'] as String)
+          .select('billing_start_day')
+          .single();
+      return (row['billing_start_day'] as num).toInt();
+    });
+  }
+
+  Future<PeriodReport> periodReport(String from, String to) {
+    return _run(() async {
+      final data = await _client.rpc('period_report', params: {'p_from': from, 'p_to': to});
+      final row = Map<String, dynamic>.from(data as Map);
+      final rawLines = (row['lines'] as List?) ?? [];
+      return PeriodReport(
+        from: '${row['from']}',
+        to: '${row['to']}',
+        saleTotal: asNum(row['sale_total']),
+        grossProfit: asNum(row['gross_profit']),
+        expenseTotal: asNum(row['expense_total']),
+        utilidad: asNum(row['utilidad']),
+        tax: asNum(row['tax']),
+        net: asNum(row['net']),
+        closed: row['closed'] == true,
+        lines: rawLines.map((item) {
+          final line = Map<String, dynamic>.from(item as Map);
+          return PeriodLine(
+            id: '${line['category_id']}',
+            name: '${line['name']}',
+            cadence: '${line['cadence']}',
+            occurredOn: '${line['occurred_on']}',
+            amount: asNum(line['amount']),
+          );
+        }).toList(),
+      );
+    });
+  }
+
+  Future<void> closeBillingPeriod(String from, String to) {
+    return _run(() async {
+      await _client.rpc('close_billing_period', params: {'p_from': from, 'p_to': to});
+    });
+  }
+
+  Future<CashFlow> cashFlow(String from, String to) {
+    return _run(() async {
+      final data = await _client.rpc('cash_flow_report', params: {'p_from': from, 'p_to': to});
+      final row = Map<String, dynamic>.from(data as Map);
+      return CashFlow(
+        cashIn: asNum(row['cash_in']),
+        transferIn: asNum(row['transfer_in']),
+        cashOut: asNum(row['cash_out']),
+        transferOut: asNum(row['transfer_out']),
+      );
+    });
+  }
+
+  Future<List<ProductRow>> products({bool activeOnly = false}) {
+    return _run(() async {
+      final rows = activeOnly
+          ? await _client.from('product_catalog').select().eq('is_active', true).order('name')
+          : await _client.from('product_catalog').select().order('name');
+      return (rows as List).map((row) => _product(Map<String, dynamic>.from(row as Map))).toList();
+    });
+  }
+
+  Future<ProductRow> product(String id) {
+    return _run(() async {
+      final row = await _client.from('product_catalog').select().eq('id', id).maybeSingle();
+      if (row == null) {
+        throw const DomainError('No encontramos ese producto.', 'ERR');
+      }
+      return _product(row);
+    });
+  }
+
+  Future<List<StockMove>> movements(String productId) {
+    return _run(() async {
+      final rows = await _client
+          .from('stock_movements')
+          .select()
+          .eq('product_id', productId)
+          .order('occurred_on', ascending: false);
+      return (rows as List).map((item) {
+        final row = Map<String, dynamic>.from(item as Map);
+        return StockMove(
+          id: row['id'] as String,
+          kind: row['kind'] as String,
+          qty: asNum(row['qty']),
+          occurredOn: '${row['occurred_on']}',
+        );
+      }).toList();
+    });
+  }
+
+  Future<void> createProduct({
+    required String name,
+    required double salePrice,
+    required double purchasePrice,
+    required double replenishmentCost,
+    required double minStock,
+    required double openingStock,
+  }) {
+    return _run(() async {
+      final row = await _client.from('products').insert({
+        'name': name,
+        'sale_price': salePrice,
+        'purchase_price': purchasePrice,
+        'replenishment_cost': replenishmentCost,
+        'min_stock': minStock,
+      }).select('id').single();
+      if (openingStock > 0) {
+        await _client.rpc('adjust_product_stock', params: {'p_id': row['id'], 'p_qty': openingStock});
+      }
+    });
+  }
+
+  Future<void> updateProduct({
+    required String id,
+    required String name,
+    required double salePrice,
+    required double purchasePrice,
+    required double replenishmentCost,
+    required double minStock,
+    required bool isActive,
+  }) {
+    return _run(() async {
+      await _client.from('products').update({
+        'name': name,
+        'sale_price': salePrice,
+        'purchase_price': purchasePrice,
+        'replenishment_cost': replenishmentCost,
+        'min_stock': minStock,
+        'is_active': isActive,
+      }).eq('id', id);
+    });
+  }
+
+  Future<void> adjustStock(String id, double qty) {
+    return _run(() async {
+      await _client.rpc('adjust_product_stock', params: {'p_id': id, 'p_qty': qty});
+    });
+  }
+
+  Future<void> deleteProduct(String id) {
+    return _run(() async {
+      await _client.rpc('delete_product', params: {'p_id': id});
+    });
+  }
+
+  Future<List<IpvDoc>> ipvs() {
+    return _run(() async {
+      final docs = await _client.from('ipv_documents').select().order('work_date', ascending: false);
+      final lines = await _client.from('ipv_lines').select();
+      final byIpv = <String, List<IpvLineRow>>{};
+      for (final item in lines as List) {
+        final row = Map<String, dynamic>.from(item as Map);
+        final ipvId = row['ipv_id'] as String;
+        byIpv.putIfAbsent(ipvId, () => []).add(_ipvLine(row));
+      }
+      return (docs as List).map((item) {
+        final row = Map<String, dynamic>.from(item as Map);
+        return IpvDoc(
+          id: row['id'] as String,
+          workDate: '${row['work_date']}',
+          status: row['status'] as String,
+          cashCollected: asNum(row['cash_collected']),
+          transferCollected: asNum(row['transfer_collected']),
+          lines: byIpv[row['id'] as String] ?? const [],
+        );
+      }).toList();
+    });
+  }
+
+  Future<IpvDoc> ipv(String id) {
+    return _run(() async {
+      final row = await _client.from('ipv_documents').select().eq('id', id).maybeSingle();
+      if (row == null) {
+        throw const DomainError('No encontramos ese IPV.', 'ERR');
+      }
+      final lines = await _client.from('ipv_lines').select().eq('ipv_id', id).order('sort_order');
+      return IpvDoc(
+        id: row['id'] as String,
+        workDate: '${row['work_date']}',
+        status: row['status'] as String,
+        cashCollected: asNum(row['cash_collected']),
+        transferCollected: asNum(row['transfer_collected']),
+        lines: (lines as List).map((item) => _ipvLine(Map<String, dynamic>.from(item as Map))).toList(),
+      );
+    });
+  }
+
+  Future<IpvDoc> createIpv(String workDate, String createdBy) {
+    return _run(() async {
+      final row = await _client.from('ipv_documents').insert({
+        'work_date': workDate,
+        'shift': 'manana',
+        'created_by': createdBy,
+      }).select().single();
+      return IpvDoc(
+        id: row['id'] as String,
+        workDate: '${row['work_date']}',
+        status: row['status'] as String,
+        cashCollected: asNum(row['cash_collected']),
+        transferCollected: asNum(row['transfer_collected']),
+        lines: const [],
+      );
+    });
+  }
+
+  Future<void> upsertIpvLine({
+    required String ipvId,
+    required String productId,
+    required String productName,
+    required double openingQty,
+    required double inboundQty,
+    required double outboundQty,
+    required double soldQty,
+    required double salePrice,
+    required double replenishmentCost,
+    required bool inboundAddsStock,
+    required int sortOrder,
+  }) {
+    return _run(() async {
+      final existing = await _client
+          .from('ipv_lines')
+          .select('id')
+          .eq('ipv_id', ipvId)
+          .eq('product_id', productId)
+          .maybeSingle();
+      final payload = {
+        'opening_qty': openingQty,
+        'inbound_qty': inboundQty,
+        'outbound_qty': outboundQty,
+        'sold_qty': soldQty,
+        'sale_price': salePrice,
+        'replenishment_cost': replenishmentCost,
+        'inbound_adds_stock': inboundAddsStock,
+        'sort_order': sortOrder,
+      };
+      if (existing != null) {
+        await _client.from('ipv_lines').update(payload).eq('id', existing['id'] as String);
+        return;
+      }
+      await _client.from('ipv_lines').insert({
+        'ipv_id': ipvId,
+        'product_id': productId,
+        'product_name': productName,
+        ...payload,
+      });
+    });
+  }
+
+  Future<void> removeIpvLine(String id) {
+    return _run(() async {
+      await _client.from('ipv_lines').delete().eq('id', id);
+    });
+  }
+
+  Future<void> updateIpvCollections(String id, double cash, double transfer) {
+    return _run(() async {
+      final row = await _client
+          .from('ipv_documents')
+          .update({'cash_collected': cash, 'transfer_collected': transfer})
+          .eq('id', id)
+          .eq('status', 'open')
+          .select('id')
+          .maybeSingle();
+      if (row == null) {
+        throw const DomainError('Este IPV ya está cerrado y no se puede editar.', 'ERR');
+      }
+    });
+  }
+
+  Future<void> closeIpv(String id) {
+    return _run(() async {
+      await _client.rpc('close_ipv', params: {'p_id': id});
+    });
+  }
+
+  Future<void> deleteIpv(String id) {
+    return _run(() async {
+      await _client.rpc('delete_ipv', params: {'p_id': id});
+    });
+  }
+
+  Future<List<PurchaseDoc>> purchases() {
+    return _run(() async {
+      final docs = await _client.from('purchase_documents').select().order('purchased_on', ascending: false);
+      final result = <PurchaseDoc>[];
+      for (final item in docs as List) {
+        final row = Map<String, dynamic>.from(item as Map);
+        result.add(await _loadPurchase(row));
+      }
+      return result;
+    });
+  }
+
+  Future<PurchaseDoc> purchase(String id) {
+    return _run(() async {
+      final row = await _client.from('purchase_documents').select().eq('id', id).maybeSingle();
+      if (row == null) {
+        throw const DomainError('No encontramos esa compra.', 'ERR');
+      }
+      return _loadPurchase(row);
+    });
+  }
+
+  Future<PurchaseDoc> _loadPurchase(Map<String, dynamic> row) async {
+    final id = row['id'] as String;
+    final lines = await _client.from('purchase_lines').select().eq('purchase_id', id);
+    final ids = (lines as List).map((item) => (item as Map)['product_id'] as String).toSet().toList();
+    final names = <String, String>{};
+    if (ids.isNotEmpty) {
+      final products = await _client.from('products').select('id, name').inFilter('id', ids);
+      for (final item in products as List) {
+        final product = Map<String, dynamic>.from(item as Map);
+        names[product['id'] as String] = product['name'] as String;
+      }
+    }
+    return PurchaseDoc(
+      id: id,
+      purchasedOn: '${row['purchased_on']}',
+      paymentMethod: (row['payment_method'] as String?) ?? 'cash',
+      lines: (lines).map((item) {
+        final line = Map<String, dynamic>.from(item as Map);
+        return PurchaseLineRow(
+          productId: line['product_id'] as String,
+          productName: names[line['product_id'] as String] ?? 'Producto',
+          qty: asNum(line['qty']),
+          unitCost: asNum(line['unit_cost']),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> savePurchase({
+    String? id,
+    required String purchasedOn,
+    required String paymentMethod,
+    required String createdBy,
+    required List<PurchaseLineRow> lines,
+  }) {
+    return _run(() async {
+      late final String purchaseId;
+      if (id == null) {
+        final row = await _client.from('purchase_documents').insert({
+          'purchased_on': purchasedOn,
+          'payment_method': paymentMethod,
+          'created_by': createdBy,
+        }).select('id').single();
+        purchaseId = row['id'] as String;
+      } else {
+        purchaseId = id;
+        await _client.from('purchase_documents').update({
+          'purchased_on': purchasedOn,
+          'payment_method': paymentMethod,
+        }).eq('id', id);
+        await _client.from('purchase_lines').delete().eq('purchase_id', id);
+      }
+      await _client.from('purchase_lines').insert(
+        lines
+            .map(
+              (line) => {
+                'purchase_id': purchaseId,
+                'product_id': line.productId,
+                'qty': line.qty,
+                'unit_cost': line.unitCost,
+              },
+            )
+            .toList(),
+      );
+    });
+  }
+
+  Future<void> deletePurchase(String id) {
+    return _run(() async {
+      await _client.from('purchase_documents').delete().eq('id', id);
+    });
+  }
+
+  Future<List<ExpenseRow>> expenses() {
+    return _run(() async {
+      final rows = await _client.from('expense_entries').select().order('occurred_on', ascending: false);
+      return (rows as List).map((item) {
+        final row = Map<String, dynamic>.from(item as Map);
+        return ExpenseRow(
+          id: row['id'] as String,
+          name: row['name'] as String,
+          occurredOn: '${row['occurred_on']}',
+          cadence: (row['cadence'] as String?) ?? 'once',
+          amount: asNum(row['amount']),
+          notes: (row['notes'] as String?) ?? '',
+        );
+      }).toList();
+    });
+  }
+
+  Future<ExpenseRow> expense(String id) {
+    return _run(() async {
+      final row = await _client.from('expense_entries').select().eq('id', id).maybeSingle();
+      if (row == null) {
+        throw const DomainError('No encontramos ese gasto.', 'ERR');
+      }
+      return ExpenseRow(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        occurredOn: '${row['occurred_on']}',
+        cadence: (row['cadence'] as String?) ?? 'once',
+        amount: asNum(row['amount']),
+        notes: (row['notes'] as String?) ?? '',
+      );
+    });
+  }
+
+  Future<void> saveExpense({
+    String? id,
+    required String name,
+    required String occurredOn,
+    required String cadence,
+    required double amount,
+    required String notes,
+    required String createdBy,
+  }) {
+    return _run(() async {
+      final payload = {
+        'name': name,
+        'occurred_on': occurredOn,
+        'cadence': cadence,
+        'amount': amount,
+        'notes': notes,
+      };
+      if (id == null) {
+        await _client.from('expense_entries').insert({...payload, 'created_by': createdBy});
+        return;
+      }
+      await _client.from('expense_entries').update(payload).eq('id', id);
+    });
+  }
+
+  Future<void> deleteExpense(String id) {
+    return _run(() async {
+      await _client.from('expense_entries').delete().eq('id', id);
+    });
+  }
+
+  Future<List<StaffRow>> staff() {
+    return _run(() async {
+      final rows = await _client.from('profiles').select().order('full_name');
+      return (rows as List).map((item) {
+        final user = UserMapper.fromProfile(Map<String, dynamic>.from(item as Map));
+        return StaffRow(
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role.name,
+          isActive: user.isActive,
+        );
+      }).toList();
+    });
+  }
+
+  Future<StaffRow> staffById(String id) {
+    return _run(() async {
+      final row = await _client.from('profiles').select().eq('id', id).maybeSingle();
+      if (row == null) {
+        throw const DomainError('No encontramos ese usuario.', 'ERR');
+      }
+      final user = UserMapper.fromProfile(row);
+      return StaffRow(
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role.name,
+        isActive: user.isActive,
+      );
+    });
+  }
+
+  Future<void> inviteStaff({
+    required String email,
+    required String password,
+    required String fullName,
+    required String role,
+  }) {
+    return _run(() async {
+      await _client.rpc(
+        'invite_staff',
+        params: {'p_email': email, 'p_password': password, 'p_full_name': fullName, 'p_role': role},
+      );
+    });
+  }
+
+  Future<void> updateStaff({
+    required String id,
+    required String fullName,
+    required String role,
+    required bool isActive,
+    String? password,
+  }) {
+    return _run(() async {
+      await _client.rpc(
+        'update_staff',
+        params: {
+          'p_id': id,
+          'p_full_name': fullName,
+          'p_role': role,
+          'p_is_active': isActive,
+          if (password != null && password.isNotEmpty) 'p_password': password,
+        },
+      );
+    });
+  }
+
+  Future<void> deleteStaff(String id) {
+    return _run(() async {
+      await _client.rpc('delete_staff', params: {'p_id': id});
+    });
+  }
+}

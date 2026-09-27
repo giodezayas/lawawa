@@ -1,0 +1,21 @@
+{
+  "name": "la-wawa-gestion",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Sistema interno de gestión de La Wawa",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @wawa/web",
+    "build:web": "npm run build -w @wawa/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:mobile": "sh -c 'cd apps/mobile && flutter run --dart-define-from-file=.env'",
+    "analyze:mobile": "sh -c 'cd apps/mobile && flutter analyze'",
+    "gen:mobile": "sh -c 'cd apps/mobile && dart run build_runner build --delete-conflicting-outputs'"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

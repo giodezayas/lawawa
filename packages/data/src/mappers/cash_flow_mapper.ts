@@ -1,0 +1,26 @@
+import { CashFlow } from '@wawa/domain';
+import type { Json } from '../supabase/database.types';
+
+function asRecord(value: Json): Record<string, Json | undefined> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function asNumber(value: Json | undefined): number {
+  return typeof value === 'number' ? value : Number(value ?? 0);
+}
+
+function asString(value: Json | undefined): string {
+  return typeof value === 'string' ? value : String(value ?? '');
+}
+
+export function mapCashFlow(payload: Json): CashFlow {
+  const row = asRecord(payload);
+  return CashFlow.create({
+    from: asString(row.from),
+    to: asString(row.to),
+    cashIn: asNumber(row.cash_in),
+    transferIn: asNumber(row.transfer_in),
+    cashOut: asNumber(row.cash_out),
+    transferOut: asNumber(row.transfer_out),
+  });
+}

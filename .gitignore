@@ -1,0 +1,33 @@
+node_modules
+dist
+.turbo
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+apps/web/dist
+coverage
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# Leftover Expo prototype (Flutter lives in apps/mobile)
+/mobile
+
+# Local machine paths
+apps/mobile/android/local.properties
+
+# Flutter
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+*.iml
+mobile/.dart_tool/
+apps/mobile/.dart_tool/
+apps/mobile/build/

@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "La Wawa mobile",
+      "request": "launch",
+      "type": "dart",
+      "program": "apps/mobile/lib/main.dart",
+      "cwd": "apps/mobile",
+      "args": ["--dart-define-from-file=.env"]
+    }
+  ]
+}
