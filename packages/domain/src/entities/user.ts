@@ -5,6 +5,7 @@ export type UserRole = (typeof userRoles)[number];
 export type UserProps = {
   readonly id: string;
   readonly email: string;
+  readonly username: string;
   readonly fullName: string;
   readonly role: UserRole;
   readonly isActive: boolean;
@@ -20,7 +21,10 @@ export const User = {
 
   displayName(user: User): string {
     const trimmed = user.fullName.trim();
-    return trimmed.length > 0 ? trimmed : user.email;
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+    return user.username || user.email;
   },
 
   canManageStaff(user: User): boolean {

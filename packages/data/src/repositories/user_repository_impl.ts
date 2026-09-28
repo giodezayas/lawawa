@@ -34,7 +34,7 @@ export class UserRepositoryImpl implements UserRepository {
 
   async create(input: CreateStaffInput): Promise<User> {
     const { data, error } = await this.client.rpc('invite_staff', {
-      p_email: input.email,
+      p_username: input.username,
       p_password: input.password,
       p_full_name: input.fullName,
       p_role: input.role,

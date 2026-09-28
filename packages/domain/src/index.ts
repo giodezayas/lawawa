@@ -104,6 +104,7 @@ export {
   startOfMonth,
   endOfMonth,
 } from './shared/date';
+export { isValidUsername } from './shared/username';
 export {
   isBillingRange,
   defaultBillingPeriod,

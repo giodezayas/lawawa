@@ -6,7 +6,7 @@ import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { ScrollTable, TableSpinner } from '../../../shared/ui/list_table';
 import { TextField } from '../../../shared/ui/text_field';
 
-type SortKey = 'fullName' | 'email' | 'role';
+type SortKey = 'fullName' | 'username' | 'role';
 
 export function UserListScreen() {
   const { container, user } = useAuth();
@@ -45,7 +45,7 @@ export function UserListScreen() {
       return rows;
     }
     return rows.filter((row) => {
-      return User.displayName(row).toLowerCase().includes(needle) || row.email.toLowerCase().includes(needle);
+      return User.displayName(row).toLowerCase().includes(needle) || row.username.toLowerCase().includes(needle);
     });
   }, [rows, query]);
 
@@ -55,8 +55,8 @@ export function UserListScreen() {
       if (sortKey === 'role') {
         return User.roleLabel(left.role).localeCompare(User.roleLabel(right.role)) * direction;
       }
-      const leftValue = sortKey === 'fullName' ? User.displayName(left) : left.email;
-      const rightValue = sortKey === 'fullName' ? User.displayName(right) : right.email;
+      const leftValue = sortKey === 'fullName' ? User.displayName(left) : left.username;
+      const rightValue = sortKey === 'fullName' ? User.displayName(right) : right.username;
       return leftValue.localeCompare(rightValue) * direction;
     });
   }, [filtered, sortKey, sortAsc]);
@@ -95,7 +95,7 @@ export function UserListScreen() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold">Usuarios</h1>
-          <p className="mt-1 text-sm text-muted">Invita al equipo. No hay registro público.</p>
+          <p className="mt-1 text-sm text-muted">Invita al equipo con un usuario y contraseña. No hay registro público.</p>
         </div>
         <Link
           to="/equipo/usuarios/nuevo"
@@ -124,8 +124,8 @@ export function UserListScreen() {
                 </button>
               </th>
               <th>
-                <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('email')}>
-                  Correo
+                <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('username')}>
+                  Usuario
                 </button>
               </th>
               <th>
@@ -150,7 +150,7 @@ export function UserListScreen() {
               sorted.map((row) => (
                 <tr key={row.id} className="border-t border-line">
                   <td className="px-4 py-3">{User.displayName(row)}</td>
-                  <td className="px-4 py-3">{row.email}</td>
+                  <td className="px-4 py-3">{row.username}</td>
                   <td className="px-4 py-3">{User.roleLabel(row.role)}</td>
                   <td className="px-4 py-3">{row.isActive ? 'Activo' : 'Inactivo'}</td>
                   <td className="px-4 py-3 text-right">

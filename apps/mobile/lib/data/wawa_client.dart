@@ -690,7 +690,7 @@ class WawaClient {
   }
 
   Future<void> inviteStaff({
-    required String email,
+    required String username,
     required String password,
     required String fullName,
     required String role,
@@ -698,7 +698,7 @@ class WawaClient {
     return _run(() async {
       await _client.rpc(
         'invite_staff',
-        params: {'p_email': email, 'p_password': password, 'p_full_name': fullName, 'p_role': role},
+        params: {'p_username': username, 'p_password': password, 'p_full_name': fullName, 'p_role': role},
       );
     });
   }

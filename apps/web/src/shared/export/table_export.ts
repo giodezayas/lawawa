@@ -35,11 +35,7 @@ export function printPdf(title: string, columns: string[], rows: string[][]) {
               `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`,
           )
           .join('');
-  const popup = window.open('', '_blank', 'noopener,noreferrer');
-  if (!popup) {
-    return;
-  }
-  popup.document.write(`<!doctype html>
+  const html = `<!doctype html>
 <html lang="es">
   <head>
     <meta charset="utf-8" />
@@ -59,8 +55,30 @@ export function printPdf(title: string, columns: string[], rows: string[][]) {
       <thead><tr>${header}</tr></thead>
       <tbody>${body}</tbody>
     </table>
-    <script>window.onload = function () { window.print(); };</script>
   </body>
-</html>`);
-  popup.document.close();
+</html>`;
+
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.position = 'fixed';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument;
+  const win = frame.contentWindow;
+  if (!doc || !win) {
+    frame.remove();
+    return;
+  }
+  doc.open();
+  doc.write(html);
+  doc.close();
+  const cleanup = () => frame.remove();
+  win.addEventListener('afterprint', cleanup);
+  window.setTimeout(() => {
+    win.focus();
+    win.print();
+  }, 100);
+  window.setTimeout(cleanup, 60_000);
 }

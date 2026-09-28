@@ -66,7 +66,7 @@ class _UserEditorScreenState extends ConsumerState<UserEditorScreen> {
       final api = ref.read(wawaClientProvider);
       if (_create) {
         await api.inviteStaff(
-          email: _email.text.trim(),
+          username: _email.text.trim(),
           password: _password.text,
           fullName: _name.text.trim(),
           role: _role,
@@ -100,7 +100,7 @@ class _UserEditorScreenState extends ConsumerState<UserEditorScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           ErrorBanner(_error),
-          LabeledField(label: 'Correo *', controller: _email, enabled: _create, keyboardType: TextInputType.emailAddress),
+          LabeledField(label: 'Usuario *', controller: _email, enabled: _create),
           LabeledField(label: 'Nombre Completo', controller: _name),
           LabeledField(label: _create ? 'Contraseña *' : 'Nueva Contraseña', controller: _password, obscureText: true),
           DropdownButtonFormField<String>(

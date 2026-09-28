@@ -18,7 +18,7 @@ class AuthRepositoryImpl implements AuthRepository {
       rethrow;
     } catch (_) {
       throw const DomainError(
-        'Correo o contraseña incorrectos.',
+        'Usuario o contraseña incorrectos.',
         AuthErrorCodes.invalidCredentials,
       );
     }

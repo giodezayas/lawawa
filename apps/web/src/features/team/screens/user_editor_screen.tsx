@@ -12,7 +12,7 @@ export function UserEditorScreen() {
   const navigate = useNavigate();
   const { container, user } = useAuth();
   const confirm = useConfirm();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<UserRole>('trabajador');
   const [isActive, setIsActive] = useState(true);
@@ -29,7 +29,7 @@ export function UserEditorScreen() {
     void container.getUser
       .execute(userId)
       .then((row) => {
-        setEmail(row.email);
+        setUsername(row.username);
         setFullName(row.fullName);
         setRole(row.role);
         setIsActive(row.isActive);
@@ -55,7 +55,7 @@ export function UserEditorScreen() {
     setSaving(true);
     try {
       if (isCreate) {
-        await container.createUser.execute(user, { email, password, fullName, role });
+        await container.createUser.execute(user, { username, password, fullName, role });
       } else if (userId) {
         await container.updateUser.execute(user, {
           id: userId,
@@ -99,7 +99,9 @@ export function UserEditorScreen() {
         <div>
           <h1 className="text-2xl font-extrabold">{isCreate ? 'Invitar Usuario' : 'Editar Usuario'}</h1>
           <p className="mt-1 text-sm text-muted">
-            {isCreate ? 'Va a poder entrar con este correo y contraseña.' : 'Deja la contraseña vacía si no la cambias.'}
+            {isCreate
+              ? 'Va a poder entrar con este usuario y contraseña. No se usa correo.'
+              : 'Deja la contraseña vacía si no la cambias.'}
           </p>
         </div>
         <Link to="/equipo/usuarios" className="text-sm font-semibold text-primary">
@@ -110,15 +112,14 @@ export function UserEditorScreen() {
       <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4 rounded-3xl border border-line bg-surface p-5">
         {isCreate ? (
           <TextField
-            id="email"
-            label="Correo"
-            type="email"
+            id="username"
+            label="Usuario"
             required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
           />
         ) : (
-          <TextField id="email" label="Correo" value={email} readOnly />
+          <TextField id="username" label="Usuario" value={username} readOnly />
         )}
         <TextField
           id="full-name"

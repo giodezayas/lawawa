@@ -1,13 +1,13 @@
 import { AuthErrorCodes, DomainError } from '../errors/domain_error';
 import { User, type UserRole, userRoles } from '../entities/user';
 import type { UserRepository } from '../repositories/user_repository';
-import { isValidEmail } from '../shared/email';
+import { isValidUsername } from '../shared/username';
 
 export class CreateUserUseCase {
   constructor(private readonly userRepository: UserRepository) {}
 
   execute(actor: User, input: {
-    email: string;
+    username: string;
     password: string;
     fullName: string;
     role: UserRole;
@@ -16,9 +16,12 @@ export class CreateUserUseCase {
       throw new DomainError('No tienes permiso para crear usuarios.', AuthErrorCodes.forbidden);
     }
 
-    const email = input.email.trim().toLowerCase();
-    if (!isValidEmail(email)) {
-      throw new DomainError('El correo no es válido.', AuthErrorCodes.invalidInput);
+    const username = input.username.trim().toLowerCase();
+    if (!isValidUsername(username)) {
+      throw new DomainError(
+        'El usuario debe tener de 3 a 32 caracteres: letras, números, punto, guion o guion bajo.',
+        AuthErrorCodes.invalidInput,
+      );
     }
     if (input.password.length < 6) {
       throw new DomainError('La contraseña debe tener al menos 6 caracteres.', AuthErrorCodes.invalidInput);
@@ -31,7 +34,7 @@ export class CreateUserUseCase {
     }
 
     return this.userRepository.create({
-      email,
+      username,
       password: input.password,
       fullName: input.fullName.trim(),
       role: input.role,

@@ -126,6 +126,12 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
     if (doc == null || product == null || _locked) {
       return;
     }
+    var sortOrder = doc.lines.length;
+    for (var i = 0; i < doc.lines.length; i++) {
+      if (doc.lines[i].productId == product.id) {
+        sortOrder = i;
+      }
+    }
     setState(() => _error = '');
     try {
       await ref.read(wawaClientProvider).upsertIpvLine(
@@ -139,7 +145,7 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
         salePrice: parseMoney(_salePrice.text),
         replenishmentCost: parseMoney(_cost.text),
         inboundAddsStock: _addsStock,
-        sortOrder: doc.lines.length,
+        sortOrder: sortOrder,
       );
       _opening.clear();
       _inbound.clear();
@@ -247,7 +253,10 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
               value: _selectedId,
               decoration: const InputDecoration(labelText: 'Producto'),
               items: _products
-                  .where((product) => !doc.lines.any((line) => line.productId == product.id))
+                  .where(
+                    (product) =>
+                        product.id == _selectedId || !doc.lines.any((line) => line.productId == product.id),
+                  )
                   .map((product) => DropdownMenuItem(value: product.id, child: Text(product.name)))
                   .toList(),
               onChanged: (id) {
@@ -282,25 +291,55 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
               value: _addsStock,
               onChanged: (value) => setState(() => _addsStock = value),
             ),
-            PrimaryButton(label: 'Agregar Producto Al IPV', onPressed: _addLine),
+            PrimaryButton(
+              label: doc.lines.any((line) => line.productId == _selectedId) ? 'Guardar Producto' : 'Agregar Producto Al IPV',
+              onPressed: _addLine,
+            ),
           ],
           const SizedBox(height: 16),
           ...doc.lines.map(
-            (line) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(line.productName),
-              subtitle: Text(
-                'Vendidos ${line.soldQty} · Final ${line.closingQty} · ${formatMoney(line.saleTotal)}',
-              ),
-              trailing: _locked
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-                      onPressed: () async {
-                        await ref.read(wawaClientProvider).removeIpvLine(line.id);
-                        await _reload(doc.id);
-                      },
+            (line) => Card(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(line.productName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Vendidos ${line.soldQty} · Final ${line.closingQty} · ${formatMoney(line.saleTotal)}',
+                      style: const TextStyle(color: AppColors.muted),
                     ),
+                    if (!_locked)
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedId = line.productId;
+                                _opening.text = line.openingQty.toString();
+                                _inbound.text = line.inboundQty.toString();
+                                _outbound.text = line.outboundQty.toString();
+                                _sold.text = line.soldQty.toString();
+                                _salePrice.text = line.salePrice.toString();
+                                _cost.text = line.replenishmentCost.toString();
+                                _addsStock = line.inboundAddsStock;
+                              });
+                            },
+                            child: const Text('Editar'),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              await ref.read(wawaClientProvider).removeIpvLine(line.id);
+                              await _reload(doc.id);
+                            },
+                            child: const Text('Quitar', style: TextStyle(color: AppColors.danger)),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),

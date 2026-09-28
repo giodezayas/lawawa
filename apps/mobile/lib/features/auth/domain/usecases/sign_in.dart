@@ -7,18 +7,16 @@ class SignInUseCase {
 
   final AuthRepository _authRepository;
 
-  static final _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+  Future<User> execute({required String login, required String password}) {
+    final normalized = login.trim().toLowerCase();
 
-  Future<User> execute({required String email, required String password}) {
-    final normalizedEmail = email.trim().toLowerCase();
-
-    if (!_emailPattern.hasMatch(normalizedEmail) || password.length < 6) {
+    if (normalized.length < 3 || password.length < 6) {
       throw const DomainError(
-        'Correo o contraseña inválidos.',
+        'Usuario o contraseña inválidos.',
         AuthErrorCodes.invalidInput,
       );
     }
 
-    return _authRepository.signIn(email: normalizedEmail, password: password);
+    return _authRepository.signIn(email: normalized, password: password);
   }
 }

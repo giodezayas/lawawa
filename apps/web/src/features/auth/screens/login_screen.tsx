@@ -5,7 +5,7 @@ import { TextField } from '../../../shared/ui/text_field';
 
 export function LoginScreen() {
   const { signIn, errorMessage } = useAuth();
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -13,7 +13,7 @@ export function LoginScreen() {
     event.preventDefault();
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(login, password);
     } catch {
       setLoading(false);
     }
@@ -38,12 +38,11 @@ export function LoginScreen() {
           <p className="mt-1 text-sm text-muted">Solo personal invitado. No hay registro público.</p>
           <form className="mt-6 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
             <TextField
-              id="email"
-              label="Correo"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              id="username"
+              label="Usuario"
+              autoComplete="username"
+              value={login}
+              onChange={(event) => setLogin(event.target.value)}
               required
             />
             <TextField

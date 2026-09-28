@@ -17,6 +17,7 @@ export type Database = {
         Row: {
           id: string;
           email: string;
+          username: string;
           full_name: string;
           role: AppRole;
           is_active: boolean;
@@ -26,6 +27,7 @@ export type Database = {
         Insert: {
           id: string;
           email: string;
+          username: string;
           full_name?: string;
           role?: AppRole;
           is_active?: boolean;
@@ -34,6 +36,7 @@ export type Database = {
         };
         Update: {
           email?: string;
+          username?: string;
           full_name?: string;
           role?: AppRole;
           is_active?: boolean;
@@ -420,8 +423,12 @@ export type Database = {
         Returns: undefined;
       };
       invite_staff: {
-        Args: { p_email: string; p_password: string; p_full_name: string; p_role: AppRole };
+        Args: { p_username: string; p_password: string; p_full_name: string; p_role: AppRole };
         Returns: string;
+      };
+      resolve_login: {
+        Args: { p_login: string };
+        Returns: string | null;
       };
       update_staff: {
         Args: {

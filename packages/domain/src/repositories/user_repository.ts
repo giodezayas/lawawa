@@ -1,7 +1,7 @@
 import type { User, UserRole } from '../entities/user';
 
 export type CreateStaffInput = {
-  email: string;
+  username: string;
   password: string;
   fullName: string;
   role: UserRole;

@@ -17,7 +17,7 @@ type AuthContextValue = {
   status: AuthStatus;
   user: User | null;
   errorMessage: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (login: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -59,10 +59,10 @@ export function AuthProvider({ container, children }: AuthProviderProps) {
   }, [container]);
 
   const signIn = useCallback(
-    async (email: string, password: string) => {
+    async (login: string, password: string) => {
       setErrorMessage(null);
       try {
-        const nextUser = await container.signIn.execute({ email, password });
+        const nextUser = await container.signIn.execute({ login, password });
         setUser(nextUser);
         setStatus('authenticated');
       } catch (error) {

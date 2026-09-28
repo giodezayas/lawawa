@@ -4,7 +4,9 @@ abstract final class UserMapper {
   static User fromProfile(Map<String, dynamic> row) {
     return User(
       id: row['id'] as String,
-      email: row['email'] as String,
+      email: ((row['username'] as String?) ?? '').isNotEmpty
+          ? row['username'] as String
+          : row['email'] as String,
       fullName: (row['full_name'] as String?) ?? '',
       role: _toRole(row['role'] as String?),
       isActive: (row['is_active'] as bool?) ?? false,

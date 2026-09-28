@@ -75,7 +75,7 @@ class AuthController extends Notifier<AuthUiState> {
   Future<void> signIn({required String email, required String password}) async {
     try {
       final user = await ref.read(signInUseCaseProvider).execute(
-        email: email,
+        login: email,
         password: password,
       );
       state = AuthAuthenticated(user);

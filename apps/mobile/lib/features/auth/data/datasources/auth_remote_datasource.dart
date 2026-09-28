@@ -10,15 +10,24 @@ class AuthRemoteDatasource {
   final SupabaseClient _client;
 
   Future<String> signIn({required String email, required String password}) async {
+    final resolved = await _client.rpc('resolve_login', params: {'p_login': email});
+    final loginEmail = resolved is String ? resolved : null;
+    if (loginEmail == null || loginEmail.isEmpty) {
+      throw const DomainError(
+        'Usuario o contraseña incorrectos.',
+        AuthErrorCodes.invalidCredentials,
+      );
+    }
+
     final response = await _client.auth.signInWithPassword(
-      email: email,
+      email: loginEmail,
       password: password,
     );
 
     final userId = response.user?.id;
     if (userId == null) {
       throw const DomainError(
-        'Correo o contraseña incorrectos.',
+        'Usuario o contraseña incorrectos.',
         AuthErrorCodes.invalidCredentials,
       );
     }

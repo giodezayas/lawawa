@@ -48,6 +48,58 @@ function toQty(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+type LineEdit = {
+  openingQty: string;
+  inboundQty: string;
+  outboundQty: string;
+  soldQty: string;
+  salePrice: string;
+  replenishmentCost: string;
+  inboundAddsStock: boolean;
+};
+
+function lineEditFrom(line: IpvLine): LineEdit {
+  return {
+    openingQty: String(line.openingQty),
+    inboundQty: String(line.inboundQty),
+    outboundQty: String(line.outboundQty),
+    soldQty: String(line.soldQty),
+    salePrice: String(line.salePrice),
+    replenishmentCost: String(line.replenishmentCost),
+    inboundAddsStock: line.inboundAddsStock,
+  };
+}
+
+function CompactField({
+  label,
+  value,
+  disabled,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  display?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1">
+      <span className="text-[11px] font-medium text-muted">{label}</span>
+      {disabled ? (
+        <p className="h-10 truncate rounded-2xl bg-cream-dark px-3 text-right text-sm leading-10">{display ?? value}</p>
+      ) : (
+        <input
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-10 w-full min-w-0 rounded-2xl border border-line bg-white px-3 text-right text-sm outline-none focus:border-primary"
+        />
+      )}
+    </label>
+  );
+}
+
 export function IpvEditorScreen() {
   const { ipvId } = useParams();
   const isCreate = ipvId === undefined;
@@ -67,10 +119,20 @@ export function IpvEditorScreen() {
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [lineDrafts, setLineDrafts] = useState<Record<string, LineEdit>>({});
+  const [savingLineId, setSavingLineId] = useState('');
 
   const canEditClosed = user ? User.canManageStaff(user) : false;
   const locked = document ? !IpvDocument.isOpen(document) && !canEditClosed : false;
   const isClosed = document ? !IpvDocument.isOpen(document) : false;
+
+  function applyDocument(next: IpvDocument) {
+    setDocument(next);
+    setCashCollected(String(next.cashCollected));
+    setTransferPCollected(String(next.transferPCollected));
+    setTransferFCollected(String(next.transferFCollected));
+    setLineDrafts(Object.fromEntries(next.lines.map((line) => [line.id, lineEditFrom(line)])));
+  }
 
   useEffect(() => {
     void container.listProducts.execute().then(setProducts);
@@ -82,12 +144,7 @@ export function IpvEditorScreen() {
     }
     void container.getIpv
       .execute(ipvId)
-      .then((next) => {
-        setDocument(next);
-        setCashCollected(String(next.cashCollected));
-        setTransferPCollected(String(next.transferPCollected));
-        setTransferFCollected(String(next.transferFCollected));
-      })
+      .then((next) => applyDocument(next))
       .catch((error) => {
         setPageError(error instanceof DomainError ? error.message : 'No se pudo abrir el IPV.');
       });
@@ -172,7 +229,7 @@ export function IpvEditorScreen() {
         sortOrder: document.lines.length,
       });
       const next = await container.getIpv.execute(document.id);
-      setDocument(next);
+      applyDocument(next);
       setDraft(emptyDraft);
     } catch (error) {
       setLineError(error instanceof DomainError ? error.message : 'No se pudo agregar la línea.');
@@ -187,7 +244,36 @@ export function IpvEditorScreen() {
       return;
     }
     await container.removeIpvLine.execute(lineId);
-    setDocument(await container.getIpv.execute(document.id));
+    applyDocument(await container.getIpv.execute(document.id));
+  }
+
+  async function saveExistingLine(line: IpvLine) {
+    if (!document || locked) {
+      return;
+    }
+    const edit = lineDrafts[line.id] ?? lineEditFrom(line);
+    setPageError('');
+    setSavingLineId(line.id);
+    try {
+      await container.upsertIpvLine.execute({
+        ipvId: document.id,
+        productId: line.productId,
+        productName: line.productName,
+        openingQty: toQty(edit.openingQty),
+        inboundQty: toQty(edit.inboundQty),
+        outboundQty: toQty(edit.outboundQty),
+        soldQty: toQty(edit.soldQty),
+        salePrice: toQty(edit.salePrice),
+        replenishmentCost: toQty(edit.replenishmentCost),
+        inboundAddsStock: edit.inboundAddsStock,
+        sortOrder: line.sortOrder,
+      });
+      applyDocument(await container.getIpv.execute(document.id));
+    } catch (error) {
+      setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el producto.');
+    } finally {
+      setSavingLineId('');
+    }
   }
 
   async function saveCollections() {
@@ -203,7 +289,7 @@ export function IpvEditorScreen() {
         toMoneyNumber(transferPCollected),
         toMoneyNumber(transferFCollected),
       );
-      setDocument(next);
+      applyDocument(next);
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar la caja.');
     } finally {
@@ -225,7 +311,7 @@ export function IpvEditorScreen() {
         toMoneyNumber(transferFCollected),
       );
       const closed = await container.closeIpv.execute(document.id, user.id);
-      setDocument(closed);
+      applyDocument(closed);
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo cerrar el IPV.');
     } finally {
@@ -281,7 +367,7 @@ export function IpvEditorScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-3xl min-w-0 space-y-6 overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-muted">
@@ -361,7 +447,7 @@ export function IpvEditorScreen() {
             Ver Tarjetas
           </Link>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <TextField
             id="cash-collected"
             label="Efectivo"
@@ -427,7 +513,7 @@ export function IpvEditorScreen() {
             selectedId={draft.productId}
             onSelect={selectProduct}
           />
-          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3">
             <TextField
               id="opening"
               label="Inicio De Turno"
@@ -496,72 +582,112 @@ export function IpvEditorScreen() {
         </form>
       )}
 
-      <div className="overflow-x-auto rounded-3xl border border-line bg-surface">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="border-b border-line text-left">
-              <th className="px-3 py-3 font-semibold">Producto</th>
-              <th className="px-3 py-3 text-right font-semibold">Inicio</th>
-              <th className="px-3 py-3 text-right font-semibold">Entradas</th>
-              <th className="px-3 py-3 text-right font-semibold">Salidas</th>
-              <th className="px-3 py-3 text-right font-semibold">Vendidos</th>
-              <th className="px-3 py-3 text-right font-semibold">P. Venta</th>
-              <th className="px-3 py-3 text-right font-semibold">Costo</th>
-              <th className="px-3 py-3 text-right font-semibold">Stock Final</th>
-              <th className="px-3 py-3 text-right font-semibold">Total Venta</th>
-              <th className="px-3 py-3 text-right font-semibold">Ganancia Bruta</th>
-              {locked ? null : <th className="px-3 py-3" />}
-            </tr>
-          </thead>
-          <tbody>
-            {document.lines.length === 0 ? (
-              <tr>
-                <td colSpan={locked ? 10 : 11} className="px-4 py-8 text-center text-muted">
-                  No hay productos en este IPV. Puedes agregar uno del catálogo.
-                </td>
-              </tr>
-            ) : (
-              document.lines.map((line) => (
-                <tr key={line.id} className="border-t border-line">
-                  <td className="px-3 py-3">
-                    <Link to={`/inventario/productos/${line.productId}`} className="font-semibold text-primary">
-                      {line.productName}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-3 text-right">{line.openingQty}</td>
-                  <td className="px-3 py-3 text-right">{line.inboundQty}</td>
-                  <td className="px-3 py-3 text-right">{line.outboundQty}</td>
-                  <td className="px-3 py-3 text-right">{line.soldQty}</td>
-                  <td className="px-3 py-3 text-right">{formatMoney(line.salePrice)}</td>
-                  <td className="px-3 py-3 text-right">{formatMoney(line.replenishmentCost)}</td>
-                  <td className="px-3 py-3 text-right">{line.closingQty}</td>
-                  <td className="px-3 py-3 text-right">{formatMoney(line.saleTotal)}</td>
-                  <td className={`px-3 py-3 text-right ${moneyTone(line.grossProfit)}`}>
-                    {formatMoney(line.grossProfit)}
-                  </td>
+      {document.lines.length === 0 ? (
+        <p className="rounded-3xl border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
+          No hay productos en este IPV. Puedes agregar uno del catálogo.
+        </p>
+      ) : (
+        <section className="grid gap-3">
+          {document.lines.map((line) => {
+            const edit = lineDrafts[line.id] ?? lineEditFrom(line);
+            const patch = (next: Partial<LineEdit>) =>
+              setLineDrafts((current) => ({ ...current, [line.id]: { ...edit, ...next } }));
+            return (
+              <article key={line.id} className="rounded-3xl border border-line bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <Link to={`/inventario/productos/${line.productId}`} className="min-w-0 font-semibold text-primary">
+                    {line.productName}
+                  </Link>
                   {locked ? null : (
-                    <td className="px-3 py-3 text-right">
-                      <button type="button" className="text-danger" onClick={() => void removeLine(line.id)}>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        className="text-sm font-semibold text-primary"
+                        disabled={savingLineId === line.id}
+                        onClick={() => void saveExistingLine(line)}
+                      >
+                        {savingLineId === line.id ? 'Guardando...' : 'Guardar'}
+                      </button>
+                      <button type="button" className="text-sm text-danger" onClick={() => void removeLine(line.id)}>
                         Quitar
                       </button>
-                    </td>
+                    </div>
                   )}
-                </tr>
-              ))
-            )}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-line font-semibold">
-              <td className="px-3 py-3" colSpan={8}>
-                Totales Del Turno
-              </td>
-              <td className="px-3 py-3 text-right">{formatMoney(totals.saleTotal)}</td>
-              <td className={`px-3 py-3 text-right ${moneyTone(totals.profit)}`}>{formatMoney(totals.profit)}</td>
-              {locked ? null : <td />}
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <CompactField
+                    label="Inicio"
+                    value={edit.openingQty}
+                    disabled={locked}
+                    onChange={(value) => patch({ openingQty: value })}
+                  />
+                  <CompactField
+                    label="Entradas"
+                    value={edit.inboundQty}
+                    disabled={locked}
+                    onChange={(value) => patch({ inboundQty: value })}
+                  />
+                  <CompactField
+                    label="Salidas"
+                    value={edit.outboundQty}
+                    disabled={locked}
+                    onChange={(value) => patch({ outboundQty: value })}
+                  />
+                  <CompactField
+                    label="Vendidos"
+                    value={edit.soldQty}
+                    disabled={locked}
+                    onChange={(value) => patch({ soldQty: value })}
+                  />
+                  <CompactField
+                    label="P. Venta"
+                    value={edit.salePrice}
+                    disabled={locked}
+                    display={formatMoney(line.salePrice)}
+                    onChange={(value) => patch({ salePrice: value })}
+                  />
+                  <CompactField
+                    label="Costo"
+                    value={edit.replenishmentCost}
+                    disabled={locked}
+                    display={formatMoney(line.replenishmentCost)}
+                    onChange={(value) => patch({ replenishmentCost: value })}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                  {locked ? null : (
+                    <label className="flex items-center gap-2 text-muted">
+                      <input
+                        type="checkbox"
+                        checked={edit.inboundAddsStock}
+                        onChange={(event) => patch({ inboundAddsStock: event.target.checked })}
+                      />
+                      Suma Al Inventario
+                    </label>
+                  )}
+                  <p className="ml-auto min-w-0 text-right text-muted">
+                    Final {line.closingQty}
+                    <span className="block sm:inline"> · Venta {formatMoney(line.saleTotal)}</span>
+                    <span className="block sm:inline">
+                      {' '}
+                      · Ganancia <span className={moneyTone(line.grossProfit)}>{formatMoney(line.grossProfit)}</span>
+                    </span>
+                  </p>
+                </div>
+              </article>
+            );
+          })}
+          <article className="rounded-3xl border border-line bg-surface px-4 py-3 text-sm font-semibold">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>Totales Del Turno</span>
+              <span>
+                Venta {formatMoney(totals.saleTotal)} · Ganancia{' '}
+                <span className={moneyTone(totals.profit)}>{formatMoney(totals.profit)}</span>
+              </span>
+            </div>
+          </article>
+        </section>
+      )}
 
       <div className="flex flex-wrap items-center gap-4">
         {isClosed ? (

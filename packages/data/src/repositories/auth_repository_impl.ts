@@ -13,7 +13,18 @@ import { mapProfileToUser } from '../mappers/user_mapper';
 export class AuthRepositoryImpl implements AuthRepository {
   constructor(private readonly client: AppSupabaseClient) {}
 
-  async signIn(email: string, password: string): Promise<User> {
+  async signIn(login: string, password: string): Promise<User> {
+    const { data: email, error: lookupError } = await this.client.rpc('resolve_login', {
+      p_login: login,
+    });
+
+    if (lookupError || !email) {
+      throw new DomainError(
+        'Usuario o contraseña incorrectos.',
+        AuthErrorCodes.invalidCredentials,
+      );
+    }
+
     const { data, error } = await this.client.auth.signInWithPassword({
       email,
       password,
@@ -21,7 +32,7 @@ export class AuthRepositoryImpl implements AuthRepository {
 
     if (error || !data.user) {
       throw new DomainError(
-        'Correo o contraseña incorrectos.',
+        'Usuario o contraseña incorrectos.',
         AuthErrorCodes.invalidCredentials,
       );
     }

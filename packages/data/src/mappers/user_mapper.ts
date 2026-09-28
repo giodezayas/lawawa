@@ -19,6 +19,7 @@ export function mapProfileToUser(row: ProfileRow): User {
   return User.create({
     id: row.id,
     email: row.email,
+    username: row.username || row.email.split('@')[0] || row.email,
     fullName: row.full_name,
     role: toUserRole(row.role),
     isActive: row.is_active,

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
-import { DateRangeFields, ScrollTable, TableSpinner, inDateRange } from '../../../shared/ui/list_table';
+import { DateRangeFields, inDateRange } from '../../../shared/ui/list_table';
 import { ExportButtons } from '../../../shared/ui/export_buttons';
 import { moneyTone } from '../../../shared/ui/money_tone';
 
@@ -79,12 +79,12 @@ export function IpvListScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-5xl min-w-0 space-y-6 overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold">IPV</h1>
           <p className="mt-1 text-sm text-muted">
-            Un IPV por día. Al crearlo se cargan los productos con stock. Al cerrar ya no se edita.
+            Un IPV por día. Al crearlo se cargan los productos con stock. Manager y admin pueden corregir uno cerrado.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -123,76 +123,61 @@ export function IpvListScreen() {
       <p className="text-sm text-muted">
         {loading ? 'Cargando IPV...' : `${sorted.length} IPV En El Rango`}
       </p>
-      <ScrollTable>
-        <table className="min-w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-surface">
-            <tr className="border-b border-line text-left">
-              <th>
-                <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('workDate')}>
-                  Fecha
-                </button>
-              </th>
-              <th>
-                <button type="button" className="px-4 py-3 font-semibold" onClick={() => toggleSort('status')}>
-                  Estado
-                </button>
-              </th>
-              <th className="px-4 py-3 text-right font-semibold">Total Venta</th>
-              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Efectivo</th>
-              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Tarjeta P</th>
-              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Tarjeta F</th>
-              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Ganancia Bruta</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <TableSpinner colSpan={8} label="Cargando IPV..." />
-            ) : sorted.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted">
-                  {rows.length === 0 ? 'No hay IPV todavía. Crea el del día.' : 'No hay IPV en esas fechas.'}
-                </td>
-              </tr>
-            ) : (
-              sorted.map((document) => {
-                const saleTotal = IpvDocument.saleTotal(document);
-                const profit = IpvDocument.grossProfit(document);
-                return (
-                  <tr key={document.id} className="border-t border-line">
-                    <td className="px-4 py-3">{formatDateOnly(document.workDate)}</td>
-                    <td className="px-4 py-3">{IpvDocument.statusLabel(document.status)}</td>
-                    <td className="px-4 py-3 text-right">
-                      {document.lines.length > 0 ? formatMoney(saleTotal) : '—'}
-                    </td>
-                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.cashCollected)}</td>
-                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.transferPCollected)}</td>
-                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.transferFCollected)}</td>
-                    <td className={`hidden px-4 py-3 text-right md:table-cell ${document.lines.length > 0 ? moneyTone(profit) : ''}`}>
-                      {document.lines.length > 0 ? formatMoney(profit) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-3">
-                        <Link to={`/inventario/ipv/${document.id}`} className="font-semibold text-primary">
-                          {IpvDocument.isOpen(document) || canEditClosed ? 'Continuar' : 'Ver'}
-                        </Link>
-                        <button
-                          type="button"
-                          className="text-danger"
-                          disabled={deletingId === document.id}
-                          onClick={() => void handleDelete(document.id)}
-                        >
-                          {deletingId === document.id ? 'Borrando...' : 'Borrar'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </ScrollTable>
+      <div className="flex flex-wrap gap-2 text-sm">
+        <button type="button" className="font-semibold text-primary" onClick={() => toggleSort('workDate')}>
+          Ordenar Por Fecha
+        </button>
+        <button type="button" className="font-semibold text-primary" onClick={() => toggleSort('status')}>
+          Ordenar Por Estado
+        </button>
+      </div>
+      <div className="max-h-[28rem] space-y-3 overflow-y-auto overflow-x-hidden">
+        {loading ? (
+          <p className="rounded-3xl border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
+            Cargando IPV...
+          </p>
+        ) : sorted.length === 0 ? (
+          <p className="rounded-3xl border border-line bg-surface px-4 py-8 text-center text-sm text-muted">
+            {rows.length === 0 ? 'No hay IPV todavía. Crea el del día.' : 'No hay IPV en esas fechas.'}
+          </p>
+        ) : (
+          sorted.map((document) => {
+            const saleTotal = IpvDocument.saleTotal(document);
+            const profit = IpvDocument.grossProfit(document);
+            return (
+              <article key={document.id} className="rounded-3xl border border-line bg-surface p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{formatDateOnly(document.workDate)}</p>
+                    <p className="text-sm text-muted">{IpvDocument.statusLabel(document.status)}</p>
+                  </div>
+                  <div className="min-w-0 text-right text-sm">
+                    <p>
+                      Venta {document.lines.length > 0 ? formatMoney(saleTotal) : '—'}
+                    </p>
+                    <p className={document.lines.length > 0 ? moneyTone(profit) : 'text-muted'}>
+                      Ganancia {document.lines.length > 0 ? formatMoney(profit) : '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <Link to={`/inventario/ipv/${document.id}`} className="font-semibold text-primary">
+                    {IpvDocument.isOpen(document) || canEditClosed ? 'Continuar' : 'Ver'}
+                  </Link>
+                  <button
+                    type="button"
+                    className="text-danger"
+                    disabled={deletingId === document.id}
+                    onClick={() => void handleDelete(document.id)}
+                  >
+                    {deletingId === document.id ? 'Borrando...' : 'Borrar'}
+                  </button>
+                </div>
+              </article>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
