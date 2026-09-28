@@ -70,33 +70,27 @@ function lineEditFrom(line: IpvLine): LineEdit {
   };
 }
 
-function CompactField({
-  label,
+function QtyInput({
   value,
   disabled,
   display,
   onChange,
 }: {
-  label: string;
   value: string;
   disabled: boolean;
   display?: string;
   onChange: (value: string) => void;
 }) {
+  if (disabled) {
+    return <span className="block truncate text-right">{display ?? value}</span>;
+  }
   return (
-    <label className="grid min-w-0 gap-1">
-      <span className="text-[11px] font-medium text-muted">{label}</span>
-      {disabled ? (
-        <p className="h-10 truncate rounded-2xl bg-cream-dark px-3 text-right text-sm leading-10">{display ?? value}</p>
-      ) : (
-        <input
-          inputMode="decimal"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-10 w-full min-w-0 rounded-2xl border border-line bg-white px-3 text-right text-sm outline-none focus:border-primary"
-        />
-      )}
-    </label>
+    <input
+      inputMode="decimal"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-8 w-full min-w-0 rounded-lg border border-line bg-white px-1 text-right text-xs outline-none focus:border-primary"
+    />
   );
 }
 
@@ -367,7 +361,7 @@ export function IpvEditorScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl min-w-0 space-y-6 overflow-x-hidden">
+    <div className="mx-auto min-w-0 max-w-full space-y-6 overflow-x-hidden">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-muted">
@@ -587,106 +581,116 @@ export function IpvEditorScreen() {
           No hay productos en este IPV. Puedes agregar uno del catálogo.
         </p>
       ) : (
-        <section className="grid gap-3">
-          {document.lines.map((line) => {
-            const edit = lineDrafts[line.id] ?? lineEditFrom(line);
-            const patch = (next: Partial<LineEdit>) =>
-              setLineDrafts((current) => ({ ...current, [line.id]: { ...edit, ...next } }));
-            return (
-              <article key={line.id} className="rounded-3xl border border-line bg-white p-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <Link to={`/inventario/productos/${line.productId}`} className="min-w-0 font-semibold text-primary">
-                    {line.productName}
-                  </Link>
-                  {locked ? null : (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        className="text-sm font-semibold text-primary"
-                        disabled={savingLineId === line.id}
-                        onClick={() => void saveExistingLine(line)}
-                      >
-                        {savingLineId === line.id ? 'Guardando...' : 'Guardar'}
-                      </button>
-                      <button type="button" className="text-sm text-danger" onClick={() => void removeLine(line.id)}>
-                        Quitar
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <CompactField
-                    label="Inicio"
-                    value={edit.openingQty}
-                    disabled={locked}
-                    onChange={(value) => patch({ openingQty: value })}
-                  />
-                  <CompactField
-                    label="Entradas"
-                    value={edit.inboundQty}
-                    disabled={locked}
-                    onChange={(value) => patch({ inboundQty: value })}
-                  />
-                  <CompactField
-                    label="Salidas"
-                    value={edit.outboundQty}
-                    disabled={locked}
-                    onChange={(value) => patch({ outboundQty: value })}
-                  />
-                  <CompactField
-                    label="Vendidos"
-                    value={edit.soldQty}
-                    disabled={locked}
-                    onChange={(value) => patch({ soldQty: value })}
-                  />
-                  <CompactField
-                    label="P. Venta"
-                    value={edit.salePrice}
-                    disabled={locked}
-                    display={formatMoney(line.salePrice)}
-                    onChange={(value) => patch({ salePrice: value })}
-                  />
-                  <CompactField
-                    label="Costo"
-                    value={edit.replenishmentCost}
-                    disabled={locked}
-                    display={formatMoney(line.replenishmentCost)}
-                    onChange={(value) => patch({ replenishmentCost: value })}
-                  />
-                </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-                  {locked ? null : (
-                    <label className="flex items-center gap-2 text-muted">
-                      <input
-                        type="checkbox"
-                        checked={edit.inboundAddsStock}
-                        onChange={(event) => patch({ inboundAddsStock: event.target.checked })}
+        <div className="max-h-[36rem] overflow-y-auto overflow-x-hidden rounded-3xl border border-line bg-surface">
+          <table className="w-full table-fixed text-xs">
+            <thead className="sticky top-0 z-10 bg-surface">
+              <tr className="border-b border-line text-left">
+                <th className="w-[16%] px-2 py-2 font-semibold">Producto</th>
+                <th className="w-[7%] px-1 py-2 text-right font-semibold">Inicio</th>
+                <th className="w-[7%] px-1 py-2 text-right font-semibold">Entradas</th>
+                <th className="w-[7%] px-1 py-2 text-right font-semibold">Salidas</th>
+                <th className="w-[7%] px-1 py-2 text-right font-semibold">Vendidos</th>
+                <th className="w-[8%] px-1 py-2 text-right font-semibold">P. Venta</th>
+                <th className="w-[8%] px-1 py-2 text-right font-semibold">Costo</th>
+                <th className="w-[7%] px-1 py-2 text-right font-semibold">Final</th>
+                <th className="w-[8%] px-1 py-2 text-right font-semibold">Venta</th>
+                <th className="w-[8%] px-1 py-2 text-right font-semibold">Ganancia</th>
+                <th className="w-[5%] px-1 py-2 text-center font-semibold">Suma</th>
+                <th className="w-[12%] px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {document.lines.map((line) => {
+                const edit = lineDrafts[line.id] ?? lineEditFrom(line);
+                const patch = (next: Partial<LineEdit>) =>
+                  setLineDrafts((current) => ({ ...current, [line.id]: { ...edit, ...next } }));
+                return (
+                  <tr key={line.id} className="border-t border-line align-middle">
+                    <td className="px-2 py-1">
+                      <Link to={`/inventario/productos/${line.productId}`} className="block truncate font-semibold text-primary">
+                        {line.productName}
+                      </Link>
+                    </td>
+                    <td className="px-1 py-1">
+                      <QtyInput value={edit.openingQty} disabled={locked} onChange={(value) => patch({ openingQty: value })} />
+                    </td>
+                    <td className="px-1 py-1">
+                      <QtyInput value={edit.inboundQty} disabled={locked} onChange={(value) => patch({ inboundQty: value })} />
+                    </td>
+                    <td className="px-1 py-1">
+                      <QtyInput
+                        value={edit.outboundQty}
+                        disabled={locked}
+                        onChange={(value) => patch({ outboundQty: value })}
                       />
-                      Suma Al Inventario
-                    </label>
-                  )}
-                  <p className="ml-auto min-w-0 text-right text-muted">
-                    Final {line.closingQty}
-                    <span className="block sm:inline"> · Venta {formatMoney(line.saleTotal)}</span>
-                    <span className="block sm:inline">
-                      {' '}
-                      · Ganancia <span className={moneyTone(line.grossProfit)}>{formatMoney(line.grossProfit)}</span>
-                    </span>
-                  </p>
-                </div>
-              </article>
-            );
-          })}
-          <article className="rounded-3xl border border-line bg-surface px-4 py-3 text-sm font-semibold">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span>Totales Del Turno</span>
-              <span>
-                Venta {formatMoney(totals.saleTotal)} · Ganancia{' '}
-                <span className={moneyTone(totals.profit)}>{formatMoney(totals.profit)}</span>
-              </span>
-            </div>
-          </article>
-        </section>
+                    </td>
+                    <td className="px-1 py-1">
+                      <QtyInput value={edit.soldQty} disabled={locked} onChange={(value) => patch({ soldQty: value })} />
+                    </td>
+                    <td className="px-1 py-1">
+                      <QtyInput
+                        value={edit.salePrice}
+                        disabled={locked}
+                        display={formatMoney(line.salePrice)}
+                        onChange={(value) => patch({ salePrice: value })}
+                      />
+                    </td>
+                    <td className="px-1 py-1">
+                      <QtyInput
+                        value={edit.replenishmentCost}
+                        disabled={locked}
+                        display={formatMoney(line.replenishmentCost)}
+                        onChange={(value) => patch({ replenishmentCost: value })}
+                      />
+                    </td>
+                    <td className="truncate px-1 py-1 text-right">{line.closingQty}</td>
+                    <td className="truncate px-1 py-1 text-right">{formatMoney(line.saleTotal)}</td>
+                    <td className={`truncate px-1 py-1 text-right ${moneyTone(line.grossProfit)}`}>
+                      {formatMoney(line.grossProfit)}
+                    </td>
+                    <td className="px-1 py-1 text-center">
+                      {locked ? (
+                        edit.inboundAddsStock ? 'Sí' : 'No'
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={edit.inboundAddsStock}
+                          aria-label="Suma Al Inventario"
+                          onChange={(event) => patch({ inboundAddsStock: event.target.checked })}
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-1 text-right">
+                      {locked ? null : (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            className="font-semibold text-primary"
+                            disabled={savingLineId === line.id}
+                            onClick={() => void saveExistingLine(line)}
+                          >
+                            {savingLineId === line.id ? '...' : 'Guardar'}
+                          </button>
+                          <button type="button" className="text-danger" onClick={() => void removeLine(line.id)}>
+                            Quitar
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t border-line bg-surface font-semibold">
+                <td className="px-2 py-2" colSpan={8}>
+                  Totales Del Turno
+                </td>
+                <td className="px-1 py-2 text-right">{formatMoney(totals.saleTotal)}</td>
+                <td className={`px-1 py-2 text-right ${moneyTone(totals.profit)}`}>{formatMoney(totals.profit)}</td>
+                <td colSpan={2} />
+              </tr>
+            </tbody>
+          </table>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-4">
