@@ -1,15 +1,17 @@
-import { DomainError, IpvDocument, formatDateOnly, formatMoney } from '@wawa/domain';
+import { DomainError, IpvDocument, User, formatDateOnly, formatMoney } from '@wawa/domain';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { DateRangeFields, ScrollTable, TableSpinner, inDateRange } from '../../../shared/ui/list_table';
+import { ExportButtons } from '../../../shared/ui/export_buttons';
 import { moneyTone } from '../../../shared/ui/money_tone';
 
 type SortKey = 'workDate' | 'status';
 
 export function IpvListScreen() {
-  const { container } = useAuth();
+  const { container, user } = useAuth();
+  const canEditClosed = user ? User.canManageStaff(user) : false;
   const confirm = useConfirm();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof container.listIpvs.execute>>>([]);
   const [pageError, setPageError] = useState('');
@@ -85,12 +87,29 @@ export function IpvListScreen() {
             Un IPV por día. Al crearlo se cargan los productos con stock. Al cerrar ya no se edita.
           </p>
         </div>
-        <Link
-          to="/inventario/ipv/nuevo"
-          className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
-        >
-          Crear IPV
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            title="IPV"
+            fileName="ipv"
+            columns={['Fecha', 'Estado', 'Total Venta', 'Efectivo', 'Tarjeta P', 'Tarjeta F', 'Ganancia Bruta']}
+            rows={sorted.map((document) => [
+              formatDateOnly(document.workDate),
+              IpvDocument.statusLabel(document.status),
+              document.lines.length > 0 ? formatMoney(IpvDocument.saleTotal(document)) : '',
+              formatMoney(document.cashCollected),
+              formatMoney(document.transferPCollected),
+              formatMoney(document.transferFCollected),
+              document.lines.length > 0 ? formatMoney(IpvDocument.grossProfit(document)) : '',
+            ])}
+            disabled={loading || sorted.length === 0}
+          />
+          <Link
+            to="/inventario/ipv/nuevo"
+            className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
+          >
+            Crear IPV
+          </Link>
+        </div>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
       <DateRangeFields
@@ -120,17 +139,18 @@ export function IpvListScreen() {
               </th>
               <th className="px-4 py-3 text-right font-semibold">Total Venta</th>
               <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Efectivo</th>
-              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Transferencia</th>
+              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Tarjeta P</th>
+              <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Tarjeta F</th>
               <th className="hidden px-4 py-3 text-right font-semibold md:table-cell">Ganancia Bruta</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <TableSpinner colSpan={7} label="Cargando IPV..." />
+              <TableSpinner colSpan={8} label="Cargando IPV..." />
             ) : sorted.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted">
                   {rows.length === 0 ? 'No hay IPV todavía. Crea el del día.' : 'No hay IPV en esas fechas.'}
                 </td>
               </tr>
@@ -146,14 +166,15 @@ export function IpvListScreen() {
                       {document.lines.length > 0 ? formatMoney(saleTotal) : '—'}
                     </td>
                     <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.cashCollected)}</td>
-                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.transferCollected)}</td>
+                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.transferPCollected)}</td>
+                    <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(document.transferFCollected)}</td>
                     <td className={`hidden px-4 py-3 text-right md:table-cell ${document.lines.length > 0 ? moneyTone(profit) : ''}`}>
                       {document.lines.length > 0 ? formatMoney(profit) : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-3">
                         <Link to={`/inventario/ipv/${document.id}`} className="font-semibold text-primary">
-                          {IpvDocument.isOpen(document) ? 'Continuar' : 'Ver'}
+                          {IpvDocument.isOpen(document) || canEditClosed ? 'Continuar' : 'Ver'}
                         </Link>
                         <button
                           type="button"

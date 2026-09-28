@@ -5,6 +5,12 @@ export type CashFlowProps = {
   readonly transferIn: number;
   readonly cashOut: number;
   readonly transferOut: number;
+  readonly ipvCash: number;
+  readonly ipvTransfer: number;
+  readonly cashPurchases: number;
+  readonly transferPurchases: number;
+  readonly transferToCash: number;
+  readonly cashToTransfer: number;
 };
 
 export type CashFlow = Readonly<CashFlowProps>;

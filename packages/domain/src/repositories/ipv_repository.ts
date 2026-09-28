@@ -27,7 +27,12 @@ export interface IpvRepository {
   upsertLine(input: UpsertIpvLineInput): Promise<IpvLine>;
   removeLine(lineId: string): Promise<void>;
   close(id: string, closedBy: string): Promise<IpvDocument>;
-  updateCollections(id: string, cashCollected: number, transferCollected: number): Promise<IpvDocument>;
+  updateCollections(
+    id: string,
+    cashCollected: number,
+    transferPCollected: number,
+    transferFCollected: number,
+  ): Promise<IpvDocument>;
   getCashFlow(from: string, to: string): Promise<CashFlow>;
   remove(id: string): Promise<void>;
 }

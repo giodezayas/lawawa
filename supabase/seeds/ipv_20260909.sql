@@ -1,4 +1,4 @@
--- IPV 9 sep 2026. Pan hamburguesa: compra 10 ese día, 8 a la venta, 3 vendidas.
+-- IPV 9 sep 2026. Pan hamburguesa: compra 9 ese día, 3 vendidas.
 -- Transferencia 7379.09, resto efectivo.
 
 do $$

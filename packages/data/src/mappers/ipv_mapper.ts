@@ -25,7 +25,11 @@ export function mapIpvLine(row: LineRow): IpvLine {
 }
 
 export function mapIpvDocument(row: DocumentRow, lines: LineRow[] = []): IpvDocument {
-  return IpvDocument.create({
+    const p = Number(row.transfer_p_collected ?? 0);
+    const f = Number(row.transfer_f_collected ?? 0);
+    const legacy = Number(row.transfer_collected ?? 0);
+    const split = p + f;
+    return IpvDocument.create({
     id: row.id,
     workDate: row.work_date,
     shift: row.shift as IpvShift,
@@ -34,7 +38,9 @@ export function mapIpvDocument(row: DocumentRow, lines: LineRow[] = []): IpvDocu
     closedBy: row.closed_by,
     closedAt: row.closed_at ? new Date(row.closed_at) : null,
     cashCollected: Number(row.cash_collected ?? 0),
-    transferCollected: Number(row.transfer_collected ?? 0),
+    transferPCollected: split > 0 ? p : legacy,
+    transferFCollected: split > 0 ? f : 0,
+    transferCollected: split > 0 ? split : legacy,
     lines: lines
       .slice()
       .sort((left, right) => left.sort_order - right.sort_order)

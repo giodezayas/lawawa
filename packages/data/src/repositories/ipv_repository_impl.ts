@@ -194,14 +194,22 @@ export class IpvRepositoryImpl implements IpvRepository {
     return document;
   }
 
-  async updateCollections(id: string, cashCollected: number, transferCollected: number): Promise<IpvDocument> {
+  async updateCollections(
+    id: string,
+    cashCollected: number,
+    transferPCollected: number,
+    transferFCollected: number,
+  ): Promise<IpvDocument> {
     const { data, error } = await this.client
       .from('ipv_documents')
-      .update({ cash_collected: cashCollected, transfer_collected: transferCollected })
-      .eq('id', id)
-      .eq('status', 'open')
-      .select('*')
-      .maybeSingle();
+      .update({
+        cash_collected: cashCollected,
+        transfer_p_collected: transferPCollected,
+        transfer_f_collected: transferFCollected,
+      })
+          .eq('id', id)
+          .select('*')
+          .maybeSingle();
 
     if (error) {
       if (error.message.includes('cerrado')) {

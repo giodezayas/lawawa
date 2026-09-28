@@ -14,6 +14,7 @@ import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { moneyTone } from '../../../shared/ui/money_tone';
+import { ExportButtons } from '../../../shared/ui/export_buttons';
 
 export function ResultsScreen() {
   const { container, user } = useAuth();
@@ -86,13 +87,33 @@ export function ResultsScreen() {
             El rango se define en Inicio. Impuesto fijo {taxPercent}% sobre utilidad positiva.
           </p>
         </div>
-        {report?.closed ? (
-          <p className="text-sm font-semibold text-danger">Período Cerrado</p>
-        ) : canManage ? (
-          <PrimaryButton type="button" className="page-cta" loading={closing} loadingLabel="Cerrando..." onClick={() => void closePeriod()}>
-            Cerrar Período
-          </PrimaryButton>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {report ? (
+            <ExportButtons
+              title={`Resultados ${from} ${to}`}
+              fileName={`resultados_${from}_${to}`}
+              columns={['Concepto', 'Importe']}
+              rows={[
+                ['Venta', formatMoney(report.saleTotal)],
+                ['Invertido', formatMoney(report.purchaseTotal)],
+                ['Venta Vs Invertido', formatMoney(PeriodReport.vsInvested(report))],
+                ['Ganancia Bruta', formatMoney(report.grossProfit)],
+                ['Gastos', formatMoney(report.expenseTotal)],
+                ['Utilidad', formatMoney(report.utilidad)],
+                [`Impuesto ${taxPercent}%`, formatMoney(report.tax)],
+                ['Te Quedas', formatMoney(report.net)],
+                ...report.lines.map((line) => [line.name, formatMoney(line.amount)]),
+              ]}
+            />
+          ) : null}
+          {report?.closed ? (
+            <p className="text-sm font-semibold text-danger">Período Cerrado</p>
+          ) : canManage ? (
+            <PrimaryButton type="button" className="page-cta" loading={closing} loadingLabel="Cerrando..." onClick={() => void closePeriod()}>
+              Cerrar Período
+            </PrimaryButton>
+          ) : null}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold" onClick={() => shift(-1)}>

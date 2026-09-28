@@ -14,6 +14,8 @@ import { UserListScreen } from '../features/team/screens/user_list_screen';
 import { ExpenseEditorScreen } from '../features/finance/screens/expense_editor_screen';
 import { ExpenseListScreen } from '../features/finance/screens/expense_list_screen';
 import { ResultsScreen } from '../features/finance/screens/results_screen';
+import { ReportsScreen } from '../features/finance/screens/reports_screen';
+import { CardsScreen } from '../features/finance/screens/cards_screen';
 import { LoadingState } from '../shared/ui/loading_state';
 
 function GuestRoute() {
@@ -68,6 +70,8 @@ const router = createBrowserRouter([
           { path: '/equipo/usuarios/nuevo', element: <UserEditorScreen /> },
           { path: '/equipo/usuarios/:userId', element: <UserEditorScreen /> },
           { path: '/finanzas/resultados', element: <ResultsScreen /> },
+          { path: '/finanzas/reportes', element: <ReportsScreen /> },
+          { path: '/finanzas/tarjetas', element: <CardsScreen /> },
           { path: '/finanzas/gastos', element: <ExpenseListScreen /> },
           { path: '/finanzas/gastos/nuevo', element: <ExpenseEditorScreen /> },
           { path: '/finanzas/gastos/:expenseId', element: <ExpenseEditorScreen /> },

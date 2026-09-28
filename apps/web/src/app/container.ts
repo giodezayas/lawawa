@@ -6,6 +6,7 @@ import {
   PurchaseRepositoryImpl,
   ExpenseRepositoryImpl,
   UserRepositoryImpl,
+  CashMoveRepositoryImpl,
   createBrowserSupabaseClient,
   isSupabaseConfigured,
   type AppSupabaseClient,
@@ -14,11 +15,13 @@ import {
   AdjustProductStockUseCase,
   CloseIpvUseCase,
   CloseBillingPeriodUseCase,
+  CreateCashMoveUseCase,
   CreateExpenseEntryUseCase,
   CreateIpvUseCase,
   CreateProductUseCase,
   CreatePurchaseUseCase,
   CreateUserUseCase,
+  DeleteCashMoveUseCase,
   DeleteExpenseEntryUseCase,
   DeleteIpvUseCase,
   DeleteProductUseCase,
@@ -34,6 +37,7 @@ import {
   GetPeriodReportUseCase,
   GetBillingPeriodUseCase,
   GetUserUseCase,
+  ListCashMovesUseCase,
   ListExpenseEntriesUseCase,
   ListIpvsUseCase,
   ListProductMovementsUseCase,
@@ -87,6 +91,9 @@ export type AppContainer = {
   getCashFlow: GetCashFlowUseCase;
   deleteIpv: DeleteIpvUseCase;
   listExpenseEntries: ListExpenseEntriesUseCase;
+  listCashMoves: ListCashMovesUseCase;
+  createCashMove: CreateCashMoveUseCase;
+  deleteCashMove: DeleteCashMoveUseCase;
   getExpenseEntry: GetExpenseEntryUseCase;
   createExpenseEntry: CreateExpenseEntryUseCase;
   updateExpenseEntry: UpdateExpenseEntryUseCase;
@@ -122,6 +129,7 @@ export function createAppContainer(): AppContainer {
   const purchaseRepository = new PurchaseRepositoryImpl(supabase);
   const ipvRepository = new IpvRepositoryImpl(supabase);
   const expenseRepository = new ExpenseRepositoryImpl(supabase);
+  const cashMoveRepository = new CashMoveRepositoryImpl(supabase);
 
   return {
     supabase,
@@ -157,6 +165,9 @@ export function createAppContainer(): AppContainer {
     getCashFlow: new GetCashFlowUseCase(ipvRepository),
     deleteIpv: new DeleteIpvUseCase(ipvRepository),
     listExpenseEntries: new ListExpenseEntriesUseCase(expenseRepository),
+    listCashMoves: new ListCashMovesUseCase(cashMoveRepository),
+    createCashMove: new CreateCashMoveUseCase(cashMoveRepository),
+    deleteCashMove: new DeleteCashMoveUseCase(cashMoveRepository),
     getExpenseEntry: new GetExpenseEntryUseCase(expenseRepository),
     createExpenseEntry: new CreateExpenseEntryUseCase(expenseRepository),
     updateExpenseEntry: new UpdateExpenseEntryUseCase(expenseRepository),

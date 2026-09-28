@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { DateRangeFields, ScrollTable, TableSpinner, inDateRange } from '../../../shared/ui/list_table';
+import { ExportButtons } from '../../../shared/ui/export_buttons';
 
 type SortKey = 'occurredOn' | 'name' | 'amount';
 
@@ -90,12 +91,27 @@ export function ExpenseListScreen() {
             Lista de gastos. Diario, semanal y mensual se calculan en el período de facturación desde la fecha.
           </p>
         </div>
-        <Link
-          to="/finanzas/gastos/nuevo"
-          className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
-        >
-          Registrar Gasto
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            title="Gastos"
+            fileName="gastos"
+            columns={['Fecha', 'Concepto', 'Notas', 'Frecuencia', 'Importe']}
+            rows={sorted.map((entry) => [
+              formatDateOnly(entry.occurredOn),
+              entry.name,
+              entry.notes,
+              ExpenseEntry.cadenceLabel(entry.cadence),
+              formatMoney(entry.amount),
+            ])}
+            disabled={loading || sorted.length === 0}
+          />
+          <Link
+            to="/finanzas/gastos/nuevo"
+            className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
+          >
+            Registrar Gasto
+          </Link>
+        </div>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
       <DateRangeFields

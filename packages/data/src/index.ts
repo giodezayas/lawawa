@@ -16,6 +16,7 @@ export { ProductRepositoryImpl } from './repositories/product_repository_impl';
 export { IpvRepositoryImpl } from './repositories/ipv_repository_impl';
 export { PurchaseRepositoryImpl } from './repositories/purchase_repository_impl';
 export { ExpenseRepositoryImpl } from './repositories/expense_repository_impl';
+export { CashMoveRepositoryImpl } from './repositories/cash_move_repository_impl';
 export { mapProfileToUser } from './mappers/user_mapper';
 export { mapDashboardStats } from './mappers/dashboard_mapper';
 export { mapProduct } from './mappers/product_mapper';

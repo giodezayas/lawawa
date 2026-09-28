@@ -179,6 +179,8 @@ export type Database = {
           closed_at: string | null;
           cash_collected: string;
           transfer_collected: string;
+          transfer_p_collected: string;
+          transfer_f_collected: string;
           created_at: string;
           updated_at: string;
         };
@@ -191,6 +193,8 @@ export type Database = {
           closed_at?: string | null;
           cash_collected?: number | string;
           transfer_collected?: number | string;
+          transfer_p_collected?: number | string;
+          transfer_f_collected?: number | string;
         };
         Update: {
           status?: IpvStatus;
@@ -198,6 +202,8 @@ export type Database = {
           closed_at?: string | null;
           cash_collected?: number | string;
           transfer_collected?: number | string;
+          transfer_p_collected?: number | string;
+          transfer_f_collected?: number | string;
         };
         Relationships: [];
       };
@@ -299,6 +305,34 @@ export type Database = {
           name?: string;
           occurred_on?: string;
           cadence?: string;
+          amount?: number | string;
+          notes?: string;
+        };
+        Relationships: [];
+      };
+      cash_moves: {
+        Row: {
+          id: string;
+          occurred_on: string;
+          kind: string;
+          card: string;
+          amount: string;
+          notes: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          occurred_on: string;
+          kind: string;
+          card?: string;
+          amount: number | string;
+          notes?: string;
+          created_by: string;
+        };
+        Update: {
+          occurred_on?: string;
+          kind?: string;
+          card?: string;
           amount?: number | string;
           notes?: string;
         };

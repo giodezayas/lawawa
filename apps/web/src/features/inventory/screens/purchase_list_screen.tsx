@@ -5,6 +5,7 @@ import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { CashFlowSummary } from '../../../shared/ui/cash_flow_summary';
 import { DateRangeFields, ScrollTable, TableSpinner, inDateRange } from '../../../shared/ui/list_table';
+import { ExportButtons } from '../../../shared/ui/export_buttons';
 
 type SortKey = 'purchasedOn' | 'total';
 
@@ -95,12 +96,26 @@ export function PurchaseListScreen() {
             puede comprar todas las veces que haga falta.
           </p>
         </div>
-        <Link
-          to="/inventario/compras/nueva"
-          className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
-        >
-          Registrar Compra
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <ExportButtons
+            title="Compras"
+            fileName="compras"
+            columns={['Fecha', 'Productos', 'Pago', 'Total']}
+            rows={sorted.map((document) => [
+              formatDateOnly(document.purchasedOn),
+              document.lines.map((line) => `${line.productName} (${line.qty})`).join(', '),
+              PurchaseDocument.paymentLabel(document.paymentMethod),
+              formatMoney(PurchaseDocument.total(document)),
+            ])}
+            disabled={loading || sorted.length === 0}
+          />
+          <Link
+            to="/inventario/compras/nueva"
+            className="page-cta btn-primary inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold"
+          >
+            Registrar Compra
+          </Link>
+        </div>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
       {flow ? <CashFlowSummary flow={flow} title="Caja Del Período" /> : null}

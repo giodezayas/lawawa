@@ -1,5 +1,6 @@
 -- Pan diario. Fecha de lote real. Efectivo. Idempotente por producto+día.
--- 5–6: 15 Pan Bon ×420. 7–8 y 11–14: 10×420. 9: hamburguesa. 10: no compra (entrada = a la venta).
+-- 5–6: 15×420. 7: 9. 8 y 11–12: 10. 13: 8. 14: 10. 15: 9. 16 y 21: no hay compra.
+-- 17–18: 10. 19–20 y 23–25: 9. 22: 10. 26: 13. 9: 9 hamburguesa. 10: 10 Bon.
 
 do $$
 declare
@@ -31,25 +32,24 @@ begin
       values
         (date '2026-09-05', 'Pan Bon', 15::numeric, 420::numeric),
         (date '2026-09-06', 'Pan Bon', 15, 420),
-        (date '2026-09-07', 'Pan Bon', 10, 420),
+        (date '2026-09-07', 'Pan Bon', 9, 420),
         (date '2026-09-08', 'Pan Bon', 10, 420),
-        (date '2026-09-09', 'Pan De Hamburguesa', 10, 480),
+        (date '2026-09-09', 'Pan De Hamburguesa', 9, 480),
+        (date '2026-09-10', 'Pan Bon', 10, 420),
         (date '2026-09-11', 'Pan Bon', 10, 420),
         (date '2026-09-12', 'Pan Bon', 10, 420),
-        (date '2026-09-13', 'Pan Bon', 10, 420),
+        (date '2026-09-13', 'Pan Bon', 8, 420),
         (date '2026-09-14', 'Pan Bon', 10, 420),
-        (date '2026-09-15', 'Pan Bon', 10, 400),
-        (date '2026-09-16', 'Pan Bon', 10, 400),
+        (date '2026-09-15', 'Pan Bon', 9, 400),
         (date '2026-09-17', 'Pan Bon', 10, 400),
         (date '2026-09-18', 'Pan Bon', 10, 400),
-        (date '2026-09-19', 'Pan Bon', 10, 400),
-        (date '2026-09-20', 'Pan Bon', 10, 400),
-        (date '2026-09-21', 'Pan Bon', 10, 400),
+        (date '2026-09-19', 'Pan Bon', 9, 400),
+        (date '2026-09-20', 'Pan Bon', 9, 400),
         (date '2026-09-22', 'Pan Bon', 10, 400),
-        (date '2026-09-23', 'Pan Bon', 10, 400),
-        (date '2026-09-24', 'Pan Bon', 10, 400),
-        (date '2026-09-25', 'Pan Bon', 10, 400),
-        (date '2026-09-26', 'Pan Bon', 3, 400)
+        (date '2026-09-23', 'Pan Bon', 9, 400),
+        (date '2026-09-24', 'Pan Bon', 9, 400),
+        (date '2026-09-25', 'Pan Bon', 9, 400),
+        (date '2026-09-26', 'Pan Bon', 13, 400)
     ) as v(purchased_on, name, qty, unit_cost)
   loop
     if exists (
@@ -72,4 +72,60 @@ begin
     from public.products p
     where p.name = rec.name;
   end loop;
+
+  update public.purchase_lines line
+  set qty = 9
+  from public.purchase_documents d, public.products p
+  where line.purchase_id = d.id
+    and line.product_id = p.id
+    and d.purchased_on = date '2026-09-07'
+    and p.name = 'Pan Bon'
+    and line.qty = 10;
+
+  update public.purchase_lines line
+  set qty = 9
+  from public.purchase_documents d, public.products p
+  where line.purchase_id = d.id
+    and line.product_id = p.id
+    and d.purchased_on = date '2026-09-09'
+    and p.name = 'Pan De Hamburguesa'
+    and line.qty = 10;
+
+  update public.purchase_lines line
+  set qty = 8
+  from public.purchase_documents d, public.products p
+  where line.purchase_id = d.id
+    and line.product_id = p.id
+    and d.purchased_on = date '2026-09-13'
+    and p.name = 'Pan Bon'
+    and line.qty = 10;
+
+  update public.purchase_lines line
+  set qty = 9
+  from public.purchase_documents d, public.products p
+  where line.purchase_id = d.id
+    and line.product_id = p.id
+    and p.name = 'Pan Bon'
+    and d.purchased_on in (
+      date '2026-09-15',
+      date '2026-09-19',
+      date '2026-09-20',
+      date '2026-09-23',
+      date '2026-09-24',
+      date '2026-09-25'
+    )
+    and line.qty = 10;
+
+  delete from public.purchase_lines line
+  using public.purchase_documents d, public.products p
+  where line.purchase_id = d.id
+    and line.product_id = p.id
+    and p.name = 'Pan Bon'
+    and d.purchased_on in (date '2026-09-16', date '2026-09-21');
+
+  delete from public.purchase_documents d
+  where d.purchased_on in (date '2026-09-16', date '2026-09-21')
+    and not exists (
+      select 1 from public.purchase_lines line where line.purchase_id = d.id
+    );
 end $$;

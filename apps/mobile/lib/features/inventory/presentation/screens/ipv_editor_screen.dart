@@ -21,7 +21,8 @@ class IpvEditorScreen extends ConsumerStatefulWidget {
 class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   final _date = TextEditingController(text: isoDate());
   final _cash = TextEditingController();
-  final _transfer = TextEditingController();
+  final _transferP = TextEditingController();
+  final _transferF = TextEditingController();
   final _opening = TextEditingController();
   final _inbound = TextEditingController();
   final _outbound = TextEditingController();
@@ -36,7 +37,13 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   var _loading = false;
 
   bool get _create => widget.ipvId == null;
-  bool get _locked => _doc != null && !_doc!.isOpen;
+  bool get _canEditClosed {
+    final auth = ref.read(authControllerProvider);
+    return auth is AuthAuthenticated && auth.user.canManageStaff;
+  }
+
+  bool get _locked => _doc != null && !_doc!.isOpen && !_canEditClosed;
+  bool get _isClosed => _doc != null && !_doc!.isOpen;
 
   @override
   void initState() {
@@ -48,7 +55,8 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   void dispose() {
     _date.dispose();
     _cash.dispose();
-    _transfer.dispose();
+    _transferP.dispose();
+    _transferF.dispose();
     _opening.dispose();
     _inbound.dispose();
     _outbound.dispose();
@@ -79,7 +87,8 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
     final doc = await ref.read(wawaClientProvider).ipv(id);
     _doc = doc;
     _cash.text = doc.cashCollected.toString();
-    _transfer.text = doc.transferCollected.toString();
+    _transferP.text = doc.transferPCollected.toString();
+    _transferF.text = doc.transferFCollected.toString();
     setState(() {});
   }
 
@@ -152,7 +161,12 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
       return;
     }
     try {
-      await ref.read(wawaClientProvider).updateIpvCollections(doc.id, parseMoney(_cash.text), parseMoney(_transfer.text));
+      await ref.read(wawaClientProvider).updateIpvCollections(
+        doc.id,
+        parseMoney(_cash.text),
+        parseMoney(_transferP.text),
+        parseMoney(_transferF.text),
+      );
       await _reload(doc.id);
     } catch (error) {
       setState(() => _error = error.toString());
@@ -166,7 +180,12 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
       return;
     }
     try {
-      await ref.read(wawaClientProvider).updateIpvCollections(doc.id, parseMoney(_cash.text), parseMoney(_transfer.text));
+      await ref.read(wawaClientProvider).updateIpvCollections(
+        doc.id,
+        parseMoney(_cash.text),
+        parseMoney(_transferP.text),
+        parseMoney(_transferF.text),
+      );
       await ref.read(wawaClientProvider).closeIpv(doc.id);
       await _reload(doc.id);
     } catch (error) {
@@ -196,9 +215,9 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final collected = parseMoney(_cash.text) + parseMoney(_transfer.text);
+    final collected = parseMoney(_cash.text) + parseMoney(_transferP.text) + parseMoney(_transferF.text);
     return Scaffold(
-      appBar: AppBar(title: Text('IPV ${doc.isOpen ? 'Abierto' : 'Cerrado'}')),
+      appBar: AppBar(title: Text('IPV ${_isClosed ? 'Cerrado' : 'Abierto'}')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -212,7 +231,9 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
           const SizedBox(height: 8),
           LabeledField(label: 'Efectivo', controller: _cash, keyboardType: TextInputType.number, enabled: !_locked),
           const SizedBox(height: 8),
-          LabeledField(label: 'Transferencia', controller: _transfer, keyboardType: TextInputType.number, enabled: !_locked),
+          LabeledField(label: 'Tarjeta P', controller: _transferP, keyboardType: TextInputType.number, enabled: !_locked),
+          const SizedBox(height: 8),
+          LabeledField(label: 'Tarjeta F', controller: _transferF, keyboardType: TextInputType.number, enabled: !_locked),
           const SizedBox(height: 8),
           Text(
             'Venta ${formatMoney(doc.saleTotal)} · Recaudado ${formatMoney(collected)} · Diferencia ${formatMoney(collected - doc.saleTotal)}',
@@ -283,7 +304,15 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          if (!_locked) PrimaryButton(label: 'Cerrar IPV', onPressed: _close),
+          if (!_isClosed)
+            PrimaryButton(label: 'Cerrar IPV', onPressed: _close)
+          else
+            Text(
+              _canEditClosed
+                  ? 'Este IPV está cerrado. Como manager o admin puedes corregirlo.'
+                  : 'Este IPV está cerrado. El stock del catálogo queda igual al stock final de cada producto.',
+              style: const TextStyle(color: AppColors.muted),
+            ),
           TextButton(
             onPressed: () async {
               if (!await confirmAction(context, '¿Borrar este IPV?')) {

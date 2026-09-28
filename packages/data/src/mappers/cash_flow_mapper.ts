@@ -22,5 +22,11 @@ export function mapCashFlow(payload: Json): CashFlow {
     transferIn: asNumber(row.transfer_in),
     cashOut: asNumber(row.cash_out),
     transferOut: asNumber(row.transfer_out),
+    ipvCash: asNumber(row.ipv_cash),
+    ipvTransfer: asNumber(row.ipv_transfer),
+    cashPurchases: asNumber(row.cash_purchases),
+    transferPurchases: asNumber(row.transfer_purchases),
+    transferToCash: asNumber(row.transfer_to_cash),
+    cashToTransfer: asNumber(row.cash_to_transfer),
   });
 }

@@ -6,11 +6,11 @@ import type { IpvRepository } from '../repositories/ipv_repository';
 export class UpdateIpvCollectionsUseCase {
   constructor(private readonly ipvRepository: IpvRepository) {}
 
-  execute(id: string, cashCollected: number, transferCollected: number): Promise<IpvDocument> {
-    if (cashCollected < 0 || transferCollected < 0) {
-      throw new DomainError('El efectivo y la transferencia no pueden ser negativos.', InventoryErrorCodes.invalidInput);
+  execute(id: string, cashCollected: number, transferPCollected: number, transferFCollected: number): Promise<IpvDocument> {
+    if (cashCollected < 0 || transferPCollected < 0 || transferFCollected < 0) {
+      throw new DomainError('El efectivo y las transferencias no pueden ser negativos.', InventoryErrorCodes.invalidInput);
     }
-    return this.ipvRepository.updateCollections(id, cashCollected, transferCollected);
+    return this.ipvRepository.updateCollections(id, cashCollected, transferPCollected, transferFCollected);
   }
 }
 

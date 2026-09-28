@@ -2,6 +2,7 @@ import {
   DomainError,
   IpvDocument,
   IpvLine,
+  User,
   formatDateOnly,
   formatMoney,
   todayIsoDate,
@@ -16,6 +17,7 @@ import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { ProductSearchSelect } from '../../../shared/ui/product_search_select';
 import { TextField } from '../../../shared/ui/text_field';
 import { moneyTone } from '../../../shared/ui/money_tone';
+import { ExportButtons } from '../../../shared/ui/export_buttons';
 
 type DraftLine = {
   productId: string;
@@ -57,7 +59,8 @@ export function IpvEditorScreen() {
   const [workDate, setWorkDate] = useState(todayIsoDate());
   const [draft, setDraft] = useState<DraftLine>(emptyDraft);
   const [cashCollected, setCashCollected] = useState('');
-  const [transferCollected, setTransferCollected] = useState('');
+  const [transferPCollected, setTransferPCollected] = useState('');
+  const [transferFCollected, setTransferFCollected] = useState('');
   const [savingCollections, setSavingCollections] = useState(false);
   const [pageError, setPageError] = useState('');
   const [lineError, setLineError] = useState('');
@@ -65,7 +68,9 @@ export function IpvEditorScreen() {
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const locked = document ? !IpvDocument.isOpen(document) : false;
+  const canEditClosed = user ? User.canManageStaff(user) : false;
+  const locked = document ? !IpvDocument.isOpen(document) && !canEditClosed : false;
+  const isClosed = document ? !IpvDocument.isOpen(document) : false;
 
   useEffect(() => {
     void container.listProducts.execute().then(setProducts);
@@ -80,7 +85,8 @@ export function IpvEditorScreen() {
       .then((next) => {
         setDocument(next);
         setCashCollected(String(next.cashCollected));
-        setTransferCollected(String(next.transferCollected));
+        setTransferPCollected(String(next.transferPCollected));
+        setTransferFCollected(String(next.transferFCollected));
       })
       .catch((error) => {
         setPageError(error instanceof DomainError ? error.message : 'No se pudo abrir el IPV.');
@@ -194,7 +200,8 @@ export function IpvEditorScreen() {
       const next = await container.updateIpvCollections.execute(
         document.id,
         toMoneyNumber(cashCollected),
-        toMoneyNumber(transferCollected),
+        toMoneyNumber(transferPCollected),
+        toMoneyNumber(transferFCollected),
       );
       setDocument(next);
     } catch (error) {
@@ -214,7 +221,8 @@ export function IpvEditorScreen() {
       await container.updateIpvCollections.execute(
         document.id,
         toMoneyNumber(cashCollected),
-        toMoneyNumber(transferCollected),
+        toMoneyNumber(transferPCollected),
+        toMoneyNumber(transferFCollected),
       );
       const closed = await container.closeIpv.execute(document.id, user.id);
       setDocument(closed);
@@ -281,9 +289,40 @@ export function IpvEditorScreen() {
           </p>
           <h1 className="text-2xl font-extrabold">IPV {IpvDocument.statusLabel(document.status)}</h1>
         </div>
-        <Link to="/inventario/ipv" className="text-sm font-semibold text-primary">
-          Volver A La Lista
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <ExportButtons
+            title={`IPV ${formatDateOnly(document.workDate)}`}
+            fileName={`ipv_${document.workDate}`}
+            columns={[
+              'Producto',
+              'Inicio',
+              'Entradas',
+              'Salidas',
+              'Vendidos',
+              'P. Venta',
+              'Costo',
+              'Stock Final',
+              'Total Venta',
+              'Ganancia Bruta',
+            ]}
+            rows={document.lines.map((line) => [
+              line.productName,
+              String(line.openingQty),
+              String(line.inboundQty),
+              String(line.outboundQty),
+              String(line.soldQty),
+              formatMoney(line.salePrice),
+              formatMoney(line.replenishmentCost),
+              String(line.closingQty),
+              formatMoney(line.saleTotal),
+              formatMoney(line.grossProfit),
+            ])}
+            disabled={document.lines.length === 0}
+          />
+          <Link to="/inventario/ipv" className="text-sm font-semibold text-primary">
+            Volver A La Lista
+          </Link>
+        </div>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
 
@@ -316,8 +355,13 @@ export function IpvEditorScreen() {
         }}
         className="space-y-4 rounded-3xl border border-line bg-surface p-5"
       >
-        <h2 className="text-sm font-semibold text-primary">Recaudo Del Día</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-sm font-semibold text-primary">Recaudo Del Día</h2>
+          <Link to="/finanzas/tarjetas" className="text-sm font-semibold text-primary">
+            Ver Tarjetas
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
           <TextField
             id="cash-collected"
             label="Efectivo"
@@ -326,20 +370,47 @@ export function IpvEditorScreen() {
             disabled={locked}
             onChange={(event) => setCashCollected(event.target.value)}
           />
-          <TextField
-            id="transfer-collected"
-            label="Transferencia"
-            inputMode="decimal"
-            value={transferCollected}
-            disabled={locked}
-            onChange={(event) => setTransferCollected(event.target.value)}
-          />
+          <div className="rounded-3xl border-2 border-accent bg-white p-3">
+            <TextField
+              id="transfer-p-collected"
+              label="Tarjeta P"
+              inputMode="decimal"
+              value={transferPCollected}
+              disabled={locked}
+              onChange={(event) => setTransferPCollected(event.target.value)}
+            />
+          </div>
+          <div className="rounded-3xl border-2 border-accent bg-white p-3">
+            <TextField
+              id="transfer-f-collected"
+              label="Tarjeta F"
+              inputMode="decimal"
+              value={transferFCollected}
+              disabled={locked}
+              onChange={(event) => setTransferFCollected(event.target.value)}
+            />
+          </div>
         </div>
         <p className="text-sm text-muted">
           Venta {formatMoney(totals.saleTotal)} · Recaudado{' '}
-          {formatMoney(toMoneyNumber(cashCollected) + toMoneyNumber(transferCollected))} · Diferencia{' '}
-          <span className={moneyTone(toMoneyNumber(cashCollected) + toMoneyNumber(transferCollected) - totals.saleTotal)}>
-            {formatMoney(toMoneyNumber(cashCollected) + toMoneyNumber(transferCollected) - totals.saleTotal)}
+          {formatMoney(
+            toMoneyNumber(cashCollected) + toMoneyNumber(transferPCollected) + toMoneyNumber(transferFCollected),
+          )}{' '}
+          · Diferencia{' '}
+          <span
+            className={moneyTone(
+              toMoneyNumber(cashCollected) +
+                toMoneyNumber(transferPCollected) +
+                toMoneyNumber(transferFCollected) -
+                totals.saleTotal,
+            )}
+          >
+            {formatMoney(
+              toMoneyNumber(cashCollected) +
+                toMoneyNumber(transferPCollected) +
+                toMoneyNumber(transferFCollected) -
+                totals.saleTotal,
+            )}
           </span>
         </p>
         {locked ? null : (
@@ -493,10 +564,11 @@ export function IpvEditorScreen() {
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
-        {locked ? (
+        {isClosed ? (
           <p className="text-sm text-muted">
-            Este IPV está cerrado. El stock del catálogo queda igual al stock final de cada
-            producto.
+            {canEditClosed
+              ? 'Este IPV está cerrado. Como manager o admin puedes corregir recaudo y productos; el stock se actualiza.'
+              : 'Este IPV está cerrado. El stock del catálogo queda igual al stock final de cada producto.'}
           </p>
         ) : (
           <PrimaryButton type="button" loading={closing} loadingLabel="Cerrando..." onClick={() => void closeIpv()}>

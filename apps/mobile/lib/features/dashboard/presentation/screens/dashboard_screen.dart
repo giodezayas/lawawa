@@ -8,6 +8,7 @@ import '../../../../data/wawa_providers.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../finance/presentation/screens/cards_screen.dart';
 import '../../../inventory/presentation/screens/products_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   PeriodReport? _period;
   CashFlow? _todayFlow;
   CashFlow? _periodFlow;
+  CardBalances? _cards;
   List<ProductRow> _lowStock = [];
   var _error = '';
   var _loading = true;
@@ -51,6 +53,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final report = await api.periodReport(period.from, period.to);
       final todayFlow = await api.cashFlow(today, today);
       final periodFlow = await api.cashFlow(period.from, period.to);
+      final ipvs = await api.ipvs();
+      final moves = await api.cashMoves(period.from, period.to);
       if (!mounted) {
         return;
       }
@@ -59,6 +63,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _period = report;
         _todayFlow = todayFlow;
         _periodFlow = periodFlow;
+        _cards = CardBalances.from(ipvs, moves, period.from, period.to);
         _lowStock = products.where((product) => product.isLowStock).toList();
         _from = period.from;
         _to = period.to;
@@ -172,6 +177,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               title: period == null
                   ? 'Caja Del Período'
                   : 'Caja Del Período · ${formatDateOnly(period.from)} — ${formatDateOnly(period.to)}',
+            ),
+          ],
+          if (_cards != null) ...[
+            const SizedBox(height: 20),
+            const Text('Tarjetas', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            StatCard(label: 'Tarjeta P', value: formatMoney(_cards!.p.balance), tone: moneyColor(_cards!.p.balance)),
+            const SizedBox(height: 4),
+            Text(
+              'Recibido ${formatMoney(_cards!.p.received)} · Extraído ${formatMoney(_cards!.p.withdrawn)}',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            StatCard(label: 'Tarjeta F', value: formatMoney(_cards!.f.balance), tone: moneyColor(_cards!.f.balance)),
+            const SizedBox(height: 4),
+            Text(
+              'Recibido ${formatMoney(_cards!.f.received)} · Extraído ${formatMoney(_cards!.f.withdrawn)}',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            PrimaryButton(
+              label: 'Manejar Tarjetas',
+              onPressed: () async {
+                await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const CardsScreen()));
+                await _load();
+              },
             ),
           ],
           if (period != null) ...[

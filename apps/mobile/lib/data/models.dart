@@ -74,7 +74,8 @@ class IpvDoc {
     required this.workDate,
     required this.status,
     required this.cashCollected,
-    required this.transferCollected,
+    required this.transferPCollected,
+    required this.transferFCollected,
     required this.lines,
   });
 
@@ -82,10 +83,12 @@ class IpvDoc {
   final String workDate;
   final String status;
   final double cashCollected;
-  final double transferCollected;
+  final double transferPCollected;
+  final double transferFCollected;
   final List<IpvLineRow> lines;
 
   bool get isOpen => status == 'open';
+  double get transferCollected => transferPCollected + transferFCollected;
   double get saleTotal => lines.fold(0, (sum, line) => sum + line.saleTotal);
   double get grossProfit => lines.fold(0, (sum, line) => sum + line.grossProfit);
 }
@@ -199,6 +202,85 @@ class CashFlow {
 
   double get cashNet => cashIn - cashOut;
   double get transferNet => transferIn - transferOut;
+}
+
+class CashMoveRow {
+  const CashMoveRow({
+    required this.id,
+    required this.occurredOn,
+    required this.kind,
+    required this.card,
+    required this.amount,
+    required this.notes,
+  });
+
+  final String id;
+  final String occurredOn;
+  final String kind;
+  final String card;
+  final double amount;
+  final String notes;
+
+  bool get isWithdrawal => kind == 'transfer_to_cash';
+  String get kindLabel => isWithdrawal ? 'Extracción A Efectivo' : 'Depósito Desde Efectivo';
+  String get cardLabel => card == 'f' ? 'Tarjeta F' : 'Tarjeta P';
+}
+
+class CardSlice {
+  const CardSlice({
+    required this.received,
+    required this.withdrawn,
+    required this.deposited,
+    required this.balance,
+  });
+
+  final double received;
+  final double withdrawn;
+  final double deposited;
+  final double balance;
+}
+
+class CardBalances {
+  const CardBalances({required this.p, required this.f});
+
+  final CardSlice p;
+  final CardSlice f;
+
+  static CardBalances from(List<IpvDoc> ipvs, List<CashMoveRow> moves, String from, String to) {
+    var pIn = 0.0;
+    var fIn = 0.0;
+    var pOut = 0.0;
+    var fOut = 0.0;
+    var pDep = 0.0;
+    var fDep = 0.0;
+    for (final doc in ipvs) {
+      if (doc.workDate.compareTo(from) < 0 || doc.workDate.compareTo(to) > 0) {
+        continue;
+      }
+      pIn += doc.transferPCollected;
+      fIn += doc.transferFCollected;
+    }
+    for (final move in moves) {
+      if (move.occurredOn.compareTo(from) < 0 || move.occurredOn.compareTo(to) > 0) {
+        continue;
+      }
+      if (move.isWithdrawal) {
+        if (move.card == 'f') {
+          fOut += move.amount;
+        } else {
+          pOut += move.amount;
+        }
+      } else if (move.card == 'f') {
+        fDep += move.amount;
+      } else {
+        pDep += move.amount;
+      }
+    }
+    return CardBalances(
+      p: CardSlice(received: pIn, withdrawn: pOut, deposited: pDep, balance: pIn + pDep - pOut),
+      f: CardSlice(received: fIn, withdrawn: fOut, deposited: fDep, balance: fIn + fDep - fOut),
+    );
+  }
 }
 
 class DashStats {

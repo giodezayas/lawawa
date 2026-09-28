@@ -3,6 +3,7 @@ import {
   DashboardStats,
   FIXED_TAX_RATE,
   User,
+  CardLedger,
   type CashFlow,
   PeriodReport,
   Product,
@@ -24,6 +25,7 @@ export function DashboardScreen() {
   const [month, setMonth] = useState<PeriodReport | null>(null);
   const [todayFlow, setTodayFlow] = useState<CashFlow | null>(null);
   const [periodFlow, setPeriodFlow] = useState<CashFlow | null>(null);
+  const [cards, setCards] = useState<ReturnType<typeof CardLedger.from> | null>(null);
   const [lowStock, setLowStock] = useState<Product[]>([]);
   const [pageError, setPageError] = useState('');
   const [periodFrom, setPeriodFrom] = useState(todayIsoDate());
@@ -36,18 +38,21 @@ export function DashboardScreen() {
     setPeriodFrom(period.from);
     setPeriodTo(period.to);
     const today = todayIsoDate();
-    const [nextStats, products, monthReport, todayCash, periodCash] = await Promise.all([
+    const [nextStats, products, monthReport, todayCash, periodCash, ipvs, moves] = await Promise.all([
       container.getDashboardStats.execute(),
       container.listProducts.execute(),
       container.getPeriodReport.execute(period.from, period.to),
       container.getCashFlow.execute(today, today),
       container.getCashFlow.execute(period.from, period.to),
+      container.listIpvs.execute(),
+      container.listCashMoves.execute(period.from, period.to),
     ]);
     setStats(nextStats);
     setLowStock(products.filter((product) => Product.isLowStock(product)));
     setMonth(monthReport);
     setTodayFlow(todayCash);
     setPeriodFlow(periodCash);
+    setCards(CardLedger.from(ipvs, moves, period.from, period.to));
   }
 
   useEffect(() => {
@@ -139,6 +144,36 @@ export function DashboardScreen() {
               flow={periodFlow}
               title={`Caja Del Período${month ? ` · ${formatDateOnly(month.from)} — ${formatDateOnly(month.to)}` : ''}`}
             />
+          ) : null}
+          {cards ? (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <h2 className="text-sm font-semibold text-primary">Tarjetas</h2>
+                <Link to="/finanzas/tarjetas" className="text-sm font-semibold text-primary">
+                  Manejar Tarjetas
+                </Link>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Tarjeta P</p>
+                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(cards.p.balance)}`}>
+                    {formatMoney(cards.p.balance)}
+                  </p>
+                  <p className="mt-2 text-right text-xs text-muted">
+                    Recibido {formatMoney(cards.p.received)} · Extraído {formatMoney(cards.p.withdrawn)}
+                  </p>
+                </article>
+                <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Tarjeta F</p>
+                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(cards.f.balance)}`}>
+                    {formatMoney(cards.f.balance)}
+                  </p>
+                  <p className="mt-2 text-right text-xs text-muted">
+                    Recibido {formatMoney(cards.f.received)} · Extraído {formatMoney(cards.f.withdrawn)}
+                  </p>
+                </article>
+              </div>
+            </section>
           ) : null}
           {month ? (
             <section className="space-y-3">

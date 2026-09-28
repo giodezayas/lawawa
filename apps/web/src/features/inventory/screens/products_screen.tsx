@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
 import { ScrollTable, TableSpinner } from '../../../shared/ui/list_table';
+import { ExportButtons } from '../../../shared/ui/export_buttons';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
@@ -181,6 +182,20 @@ export function ProductsScreen() {
           ? 'Cargando Productos...'
           : `${sorted.length} Producto${sorted.length === 1 ? '' : 's'}`}
       </p>
+      <ExportButtons
+        title="Productos"
+        fileName="productos"
+        columns={['Producto', 'Precio De Venta', 'Última Compra', 'Costo De Reposición', 'Stock', 'Alerta']}
+        rows={sorted.map((product) => [
+          product.name,
+          formatMoney(product.salePrice),
+          product.lastPurchasePrice === null ? '' : formatMoney(product.lastPurchasePrice),
+          formatMoney(product.replenishmentCost),
+          String(product.stockQty),
+          Product.isLowStock(product) ? 'Bajo Stock' : 'Ok',
+        ])}
+        disabled={listLoading || sorted.length === 0}
+      />
       <ScrollTable>
         <table className="min-w-full text-sm">
           <thead className="sticky top-0 z-10 bg-surface">

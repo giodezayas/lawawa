@@ -33,6 +33,8 @@ export type IpvDocumentProps = {
   readonly closedBy: string | null;
   readonly closedAt: Date | null;
   readonly cashCollected: number;
+  readonly transferPCollected: number;
+  readonly transferFCollected: number;
   readonly transferCollected: number;
   readonly lines: readonly IpvLine[];
 };
@@ -79,6 +81,10 @@ export const IpvDocument = {
 
   statusLabel(status: IpvStatus): string {
     return status === 'open' ? 'Abierto' : 'Cerrado';
+  },
+
+  transferTotal(document: IpvDocument): number {
+    return document.transferPCollected + document.transferFCollected;
   },
 
   saleTotal(document: IpvDocument): number {

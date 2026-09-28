@@ -1,4 +1,4 @@
--- IPV 13 sep 2026. Azúcar 1 lb: entrada 5 (embolsar). Snacks: a la venta, compra del 12.
+-- IPV 13 sep 2026. Azúcar 1 lb: entrada 5 (embolsar). Pan Bon: 8 a la venta, 8 vendidas, queda 0.
 -- Mr Max = Sorbeto Trixmax. Transferencia 4260.
 
 do $$
@@ -20,8 +20,51 @@ begin
     raise exception 'No hay usuario en profiles para created_by.';
   end if;
 
+  perform set_config('wawa.bypass_ipv_protect', 'on', true);
+
+  update public.purchase_lines line
+  set qty = 8
+  from public.purchase_documents d, public.products p
+  where line.purchase_id = d.id
+    and line.product_id = p.id
+    and d.purchased_on = work
+    and p.name = 'Pan Bon'
+    and line.qty = 10;
+
+  insert into public.stock_movements (
+    product_id, kind, qty, unit_cost, occurred_on
+  )
+  select
+    p.id,
+    'adjustment',
+    -s.leftover,
+    p.replenishment_cost,
+    work
+  from public.products p
+  join (
+    select coalesce(sum(m.qty), 0) as leftover
+    from public.stock_movements m
+    join public.products pan on pan.id = m.product_id
+    where pan.name = 'Pan Bon'
+      and m.occurred_on < work
+  ) s on s.leftover > 0
+  where p.name = 'Pan Bon'
+    and not exists (
+      select 1
+      from public.stock_movements existing
+      where existing.product_id = p.id
+        and existing.kind = 'adjustment'
+        and existing.occurred_on = work
+    );
+
   if exists (select 1 from public.ipv_documents where work_date = work) then
     perform set_config('wawa.bypass_ipv_protect', 'on', true);
+    update public.ipv_lines ipv_row
+    set inbound_qty = 8, sold_qty = 8
+    from public.products p
+    where ipv_row.ipv_id = (select id from public.ipv_documents where work_date = work)
+      and ipv_row.product_id = p.id
+      and p.name = 'Pan Bon';
     update public.ipv_documents doc
     set
       transfer_collected = 4260,
@@ -68,7 +111,7 @@ begin
       ('Gomitas', 0, 1, 350, false, 6),
       ('Keks Azul', 0, 5, 220, false, 7),
       ('Keks Morados', 0, 2, 220, false, 8),
-      ('Pan Bon', 0, 8, 500, false, 9),
+      ('Pan Bon', 8, 8, 500, false, 9),
       ('Sazón Tropical Naranja', 0, 1, 70, false, 10),
       ('Sazón Tropical Verde', 0, 0, 70, false, 11),
       ('Sazón Guama', 0, 5, 60, false, 12),

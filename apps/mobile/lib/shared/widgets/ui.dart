@@ -101,7 +101,7 @@ class CashFlowCards extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Entra ${formatMoney(flow.cashIn)} · Compras ${formatMoney(flow.cashOut)}',
+          'Entra ${formatMoney(flow.cashIn)} · Sale ${formatMoney(flow.cashOut)}',
           style: const TextStyle(color: AppColors.muted, fontSize: 12),
         ),
         const SizedBox(height: 12),
@@ -112,7 +112,7 @@ class CashFlowCards extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Entra ${formatMoney(flow.transferIn)} · Compras ${formatMoney(flow.transferOut)}',
+          'Entra ${formatMoney(flow.transferIn)} · Sale ${formatMoney(flow.transferOut)}',
           style: const TextStyle(color: AppColors.muted, fontSize: 12),
         ),
       ],

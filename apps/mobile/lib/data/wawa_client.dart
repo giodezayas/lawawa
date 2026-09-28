@@ -158,6 +158,57 @@ class WawaClient {
     });
   }
 
+  Future<List<CashMoveRow>> cashMoves(String from, String to) {
+    return _run(() async {
+      final rows = await _client
+          .from('cash_moves')
+          .select()
+          .gte('occurred_on', from)
+          .lte('occurred_on', to)
+          .order('occurred_on', ascending: false);
+      return (rows as List).map((item) {
+        final row = Map<String, dynamic>.from(item as Map);
+        return CashMoveRow(
+          id: row['id'] as String,
+          occurredOn: '${row['occurred_on']}',
+          kind: '${row['kind']}',
+          card: row['card'] == 'f' ? 'f' : 'p',
+          amount: asNum(row['amount']),
+          notes: (row['notes'] as String?) ?? '',
+        );
+      }).toList();
+    });
+  }
+
+  Future<void> createCashMove({
+    required String occurredOn,
+    required String kind,
+    required String card,
+    required double amount,
+    required String notes,
+    required String createdBy,
+  }) {
+    return _run(() async {
+      if (amount <= 0) {
+        throw const DomainError('El importe tiene que ser mayor que 0.', 'ERR');
+      }
+      await _client.from('cash_moves').insert({
+        'occurred_on': occurredOn,
+        'kind': kind,
+        'card': card,
+        'amount': amount,
+        'notes': notes,
+        'created_by': createdBy,
+      });
+    });
+  }
+
+  Future<void> deleteCashMove(String id) {
+    return _run(() async {
+      await _client.from('cash_moves').delete().eq('id', id);
+    });
+  }
+
   Future<List<ProductRow>> products({bool activeOnly = false}) {
     return _run(() async {
       final rows = activeOnly
@@ -264,7 +315,8 @@ class WawaClient {
           workDate: '${row['work_date']}',
           status: row['status'] as String,
           cashCollected: asNum(row['cash_collected']),
-          transferCollected: asNum(row['transfer_collected']),
+          transferPCollected: _transferP(row),
+          transferFCollected: _transferF(row),
           lines: byIpv[row['id'] as String] ?? const [],
         );
       }).toList();
@@ -283,7 +335,8 @@ class WawaClient {
         workDate: '${row['work_date']}',
         status: row['status'] as String,
         cashCollected: asNum(row['cash_collected']),
-        transferCollected: asNum(row['transfer_collected']),
+        transferPCollected: _transferP(row),
+        transferFCollected: _transferF(row),
         lines: (lines as List).map((item) => _ipvLine(Map<String, dynamic>.from(item as Map))).toList(),
       );
     });
@@ -378,17 +431,20 @@ class WawaClient {
     });
   }
 
-  Future<void> updateIpvCollections(String id, double cash, double transfer) {
+  Future<void> updateIpvCollections(String id, double cash, double transferP, double transferF) {
     return _run(() async {
       final row = await _client
           .from('ipv_documents')
-          .update({'cash_collected': cash, 'transfer_collected': transfer})
+          .update({
+            'cash_collected': cash,
+            'transfer_p_collected': transferP,
+            'transfer_f_collected': transferF,
+          })
           .eq('id', id)
-          .eq('status', 'open')
           .select('id')
           .maybeSingle();
       if (row == null) {
-        throw const DomainError('Este IPV ya está cerrado y no se puede editar.', 'ERR');
+        throw const DomainError('No encontramos ese IPV.', 'ERR');
       }
     });
   }
@@ -638,4 +694,22 @@ class WawaClient {
       await _client.rpc('delete_staff', params: {'p_id': id});
     });
   }
+}
+
+double _transferP(Map<String, dynamic> row) {
+  final p = asNum(row['transfer_p_collected']);
+  final f = asNum(row['transfer_f_collected']);
+  if (p + f > 0) {
+    return p;
+  }
+  return asNum(row['transfer_collected']);
+}
+
+double _transferF(Map<String, dynamic> row) {
+  final p = asNum(row['transfer_p_collected']);
+  final f = asNum(row['transfer_f_collected']);
+  if (p + f > 0) {
+    return f;
+  }
+  return 0;
 }

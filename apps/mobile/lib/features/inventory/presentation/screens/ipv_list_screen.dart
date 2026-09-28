@@ -78,7 +78,7 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
               child: ListTile(
                 title: Text(formatDateOnly(doc.workDate)),
                 subtitle: Text(
-                  '${doc.isOpen ? 'Abierto' : 'Cerrado'} · Venta ${formatMoney(doc.saleTotal)}\nEfectivo ${formatMoney(doc.cashCollected)} · Transferencia ${formatMoney(doc.transferCollected)}',
+                  '${doc.isOpen ? 'Abierto' : 'Cerrado'} · Venta ${formatMoney(doc.saleTotal)}\nEfectivo ${formatMoney(doc.cashCollected)} · P ${formatMoney(doc.transferPCollected)} · F ${formatMoney(doc.transferFCollected)}',
                 ),
                 isThreeLine: true,
                 trailing: const Icon(Icons.chevron_right),

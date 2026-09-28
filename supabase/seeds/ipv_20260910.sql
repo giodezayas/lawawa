@@ -1,4 +1,4 @@
--- IPV 10 sep 2026. Entrada = a la venta, no compra (compras ya registradas).
+-- IPV 10 sep 2026. Pan Bon: compra 10, 4 vendidas. Hamburguesa: 2 vendidas (quedaban del 9).
 -- Azúcar 5 kg y 5 lb sí suman: se embolsan del saco. Transferencia 10470.
 
 do $$
@@ -22,23 +22,6 @@ begin
 
   perform set_config('wawa.bypass_ipv_protect', 'on', true);
 
-  delete from public.purchase_documents d
-  where d.purchased_on = work
-    and exists (
-      select 1
-      from public.purchase_lines pl
-      join public.products p on p.id = pl.product_id
-      where pl.purchase_id = d.id
-        and p.name = 'Pan Bon'
-    )
-    and not exists (
-      select 1
-      from public.purchase_lines pl
-      join public.products p on p.id = pl.product_id
-      where pl.purchase_id = d.id
-        and p.name <> 'Pan Bon'
-    );
-
   if exists (select 1 from public.ipv_documents where work_date = work) then
     perform set_config('wawa.bypass_ipv_protect', 'on', true);
     update public.ipv_lines ipv_row
@@ -60,6 +43,26 @@ begin
     join public.products p on p.name = v.name
     where ipv_row.ipv_id = (select id from public.ipv_documents where work_date = work)
       and ipv_row.product_id = p.id;
+
+    update public.ipv_lines ipv_row
+    set sold_qty = v.sold_qty
+    from (
+      values
+        ('Pan Bon', 4::numeric),
+        ('Pan De Hamburguesa', 2)
+    ) as v(name, sold_qty)
+    join public.products p on p.name = v.name
+    where ipv_row.ipv_id = (select id from public.ipv_documents where work_date = work)
+      and ipv_row.product_id = p.id;
+
+    update public.stock_movements m
+    set qty = -ipv_row.sold_qty
+    from public.ipv_lines ipv_row
+    join public.products p on p.id = ipv_row.product_id
+    where m.ipv_line_id = ipv_row.id
+      and m.kind = 'ipv_sale'
+      and ipv_row.ipv_id = (select id from public.ipv_documents where work_date = work)
+      and p.name in ('Pan Bon', 'Pan De Hamburguesa');
 
     update public.ipv_documents doc
     set
@@ -108,8 +111,8 @@ begin
       ('Mega', 0, 1, 250, false, 7),
       ('Keks Azul', 0, 2, 220, false, 8),
       ('Keks Morados', 0, 3, 220, false, 9),
-      ('Pan De Hamburguesa', 0, 3, 500, false, 10),
-      ('Pan Bon', 10, 6, 500, false, 11),
+      ('Pan De Hamburguesa', 0, 2, 500, false, 10),
+      ('Pan Bon', 10, 4, 500, false, 11),
       ('Sazón Tropical Naranja', 0, 1, 70, false, 12),
       ('Sazón Tropical Verde', 0, 2, 70, false, 13),
       ('Sazón Guama', 0, 6, 60, false, 14),
