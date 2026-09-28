@@ -1,4 +1,4 @@
-import { CashFlow, formatMoney } from '@wawa/domain';
+import { CashFlow, formatDateOnly, formatMoney } from '@wawa/domain';
 import { moneyTone } from './money_tone';
 
 type CashFlowSummaryProps = {
@@ -11,7 +11,10 @@ export function CashFlowSummary({ flow, title }: CashFlowSummaryProps) {
     <section className="space-y-3">
       <h2 className="text-sm font-semibold text-primary">{title}</h2>
       <p className="text-sm text-muted">
-        No es el conteo físico del cajón. Es recaudo IPV del rango, menos compras, más lo que pasas de transferencia a efectivo.
+        Recaudo IPV menos reposiciones, más pases entre efectivo y transferencia.
+        {flow.firstSaleOn
+          ? ` Empieza el ${formatDateOnly(flow.firstSaleOn)}, con la primera venta. Las compras de antes son inversión y no entran aquí.`
+          : ' Todavía no hay venta, así que no hay flujo de caja.'}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <article className="rounded-3xl border border-line bg-white px-5 py-4">

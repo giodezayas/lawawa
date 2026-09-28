@@ -7,6 +7,7 @@ import {
   ExpenseRepositoryImpl,
   UserRepositoryImpl,
   CashMoveRepositoryImpl,
+  CardOpeningRepositoryImpl,
   createBrowserSupabaseClient,
   isSupabaseConfigured,
   type AppSupabaseClient,
@@ -36,6 +37,7 @@ import {
   GetPurchaseUseCase,
   GetPeriodReportUseCase,
   GetBillingPeriodUseCase,
+  GetCardOpeningUseCase,
   GetUserUseCase,
   ListCashMovesUseCase,
   ListExpenseEntriesUseCase,
@@ -54,6 +56,7 @@ import {
   UpdateProductUseCase,
   UpdatePurchaseUseCase,
   UpdateUserUseCase,
+  UpsertCardOpeningUseCase,
   UpsertIpvLineUseCase,
 } from '@wawa/domain';
 
@@ -94,6 +97,8 @@ export type AppContainer = {
   listCashMoves: ListCashMovesUseCase;
   createCashMove: CreateCashMoveUseCase;
   deleteCashMove: DeleteCashMoveUseCase;
+  getCardOpening: GetCardOpeningUseCase;
+  upsertCardOpening: UpsertCardOpeningUseCase;
   getExpenseEntry: GetExpenseEntryUseCase;
   createExpenseEntry: CreateExpenseEntryUseCase;
   updateExpenseEntry: UpdateExpenseEntryUseCase;
@@ -130,6 +135,7 @@ export function createAppContainer(): AppContainer {
   const ipvRepository = new IpvRepositoryImpl(supabase);
   const expenseRepository = new ExpenseRepositoryImpl(supabase);
   const cashMoveRepository = new CashMoveRepositoryImpl(supabase);
+  const cardOpeningRepository = new CardOpeningRepositoryImpl(supabase);
 
   return {
     supabase,
@@ -168,6 +174,8 @@ export function createAppContainer(): AppContainer {
     listCashMoves: new ListCashMovesUseCase(cashMoveRepository),
     createCashMove: new CreateCashMoveUseCase(cashMoveRepository),
     deleteCashMove: new DeleteCashMoveUseCase(cashMoveRepository),
+    getCardOpening: new GetCardOpeningUseCase(cardOpeningRepository),
+    upsertCardOpening: new UpsertCardOpeningUseCase(cardOpeningRepository),
     getExpenseEntry: new GetExpenseEntryUseCase(expenseRepository),
     createExpenseEntry: new CreateExpenseEntryUseCase(expenseRepository),
     updateExpenseEntry: new UpdateExpenseEntryUseCase(expenseRepository),

@@ -93,6 +93,11 @@ class CashFlowCards extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        const Text(
+          'Las compras de antes de la primera venta no entran. Eso es inversión.',
+          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        ),
         const SizedBox(height: 12),
         StatCard(
           label: 'Efectivo',

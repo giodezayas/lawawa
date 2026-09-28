@@ -209,6 +209,41 @@ class WawaClient {
     });
   }
 
+  Future<({String asOf, double pAmount, double fAmount})?> cardOpening() {
+    return _run(() async {
+      final row = await _client.from('card_opening').select().limit(1).maybeSingle();
+      if (row == null) {
+        return null;
+      }
+      return (
+        asOf: '${row['as_of']}',
+        pAmount: asNum(row['p_amount']),
+        fAmount: asNum(row['f_amount']),
+      );
+    });
+  }
+
+  Future<void> saveCardOpening({
+    required String asOf,
+    required double pAmount,
+    required double fAmount,
+    required String updatedBy,
+  }) {
+    return _run(() async {
+      if (pAmount < 0 || fAmount < 0) {
+        throw const DomainError('El saldo de las tarjetas no puede ser negativo.', 'ERR');
+      }
+      await _client.from('card_opening').upsert({
+        'id': true,
+        'as_of': asOf,
+        'p_amount': pAmount,
+        'f_amount': fAmount,
+        'updated_by': updatedBy,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    });
+  }
+
   Future<List<ProductRow>> products({bool activeOnly = false}) {
     return _run(() async {
       final rows = activeOnly

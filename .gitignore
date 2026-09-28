@@ -31,3 +31,5 @@ build/
 mobile/.dart_tool/
 apps/mobile/.dart_tool/
 apps/mobile/build/
+.vercel
+.env*.local

@@ -38,21 +38,26 @@ export function DashboardScreen() {
     setPeriodFrom(period.from);
     setPeriodTo(period.to);
     const today = todayIsoDate();
-    const [nextStats, products, monthReport, todayCash, periodCash, ipvs, moves] = await Promise.all([
-      container.getDashboardStats.execute(),
-      container.listProducts.execute(),
-      container.getPeriodReport.execute(period.from, period.to),
-      container.getCashFlow.execute(today, today),
-      container.getCashFlow.execute(period.from, period.to),
-      container.listIpvs.execute(),
-      container.listCashMoves.execute(period.from, period.to),
-    ]);
-    setStats(nextStats);
-    setLowStock(products.filter((product) => Product.isLowStock(product)));
-    setMonth(monthReport);
-    setTodayFlow(todayCash);
-    setPeriodFlow(periodCash);
-    setCards(CardLedger.from(ipvs, moves, period.from, period.to));
+      const [nextStats, products, monthReport, todayCash, periodCash, ipvs, opening] = await Promise.all([
+        container.getDashboardStats.execute(),
+        container.listProducts.execute(),
+        container.getPeriodReport.execute(period.from, period.to),
+        container.getCashFlow.execute(today, today),
+        container.getCashFlow.execute(period.from, period.to),
+        container.listIpvs.execute(),
+        container.getCardOpening.execute(),
+      ]);
+      const ledgerTo = opening && opening.asOf > period.to ? opening.asOf : period.to;
+      const moveFrom = opening && opening.asOf < period.from ? opening.asOf : period.from;
+      const moves = opening
+        ? await container.listCashMoves.execute(moveFrom, ledgerTo)
+        : [];
+      setStats(nextStats);
+      setLowStock(products.filter((product) => Product.isLowStock(product)));
+      setMonth(monthReport);
+      setTodayFlow(todayCash);
+      setPeriodFlow(periodCash);
+      setCards(CardLedger.from(ipvs, moves, period.from, period.to, opening));
   }
 
   useEffect(() => {
@@ -160,7 +165,8 @@ export function DashboardScreen() {
                     {formatMoney(cards.p.balance)}
                   </p>
                   <p className="mt-2 text-right text-xs text-muted">
-                    Recibido {formatMoney(cards.p.received)} · Extraído {formatMoney(cards.p.withdrawn)}
+                    Inicial {formatMoney(cards.p.opening)} · Recibido {formatMoney(cards.p.received)} · Extraído{' '}
+                    {formatMoney(cards.p.withdrawn)}
                   </p>
                 </article>
                 <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
@@ -169,7 +175,8 @@ export function DashboardScreen() {
                     {formatMoney(cards.f.balance)}
                   </p>
                   <p className="mt-2 text-right text-xs text-muted">
-                    Recibido {formatMoney(cards.f.received)} · Extraído {formatMoney(cards.f.withdrawn)}
+                    Inicial {formatMoney(cards.f.opening)} · Recibido {formatMoney(cards.f.received)} · Extraído{' '}
+                    {formatMoney(cards.f.withdrawn)}
                   </p>
                 </article>
               </div>

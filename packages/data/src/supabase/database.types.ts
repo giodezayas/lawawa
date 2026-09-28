@@ -338,6 +338,35 @@ export type Database = {
         };
         Relationships: [];
       };
+      card_opening: {
+        Row: {
+          id: boolean;
+          as_of: string;
+          p_amount: string;
+          f_amount: string;
+          notes: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          as_of: string;
+          p_amount?: number | string;
+          f_amount?: number | string;
+          notes?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          as_of?: string;
+          p_amount?: number | string;
+          f_amount?: number | string;
+          notes?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       product_catalog: {

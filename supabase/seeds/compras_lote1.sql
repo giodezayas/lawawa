@@ -25,9 +25,9 @@ begin
     ('Papel Higiénico', 690, 590, 590, 0, true),
     ('Pasta De Tomate', 650, 600, 600, 0, true),
     ('Gomitas', 350, 300, 300, 0, true),
-    ('Sazón Tropical Verde', 70, 100, 100, 0, true),
-    ('Sazón Tropical Naranja', 70, 100, 100, 0, true),
-    ('Sazón Mina', 60, 158, 158, 0, true),
+    ('Sazón Tropical Verde', 70, 48, 48, 0, true),
+    ('Sazón Tropical Naranja', 70, 48, 48, 0, true),
+    ('Sazón Mina', 60, 38, 38, 0, true),
     ('Cuadrito De Pollo', 30, 18, 18, 0, true),
     ('Azúcar Saco 25 kg', 0, 403.64, 403.64, 0, false),
     ('Azúcar 1 lb', 500, 403.64, 403.64, 0, true),
@@ -69,9 +69,9 @@ begin
     select doc, p.id, v.qty, v.unit_cost
     from (
       values
-        ('Sazón Tropical Verde', 24::numeric, 100::numeric),
-        ('Sazón Tropical Naranja', 24, 100),
-        ('Sazón Mina', 50, 158),
+        ('Sazón Tropical Verde', 24::numeric, 48::numeric),
+        ('Sazón Tropical Naranja', 24, 48),
+        ('Sazón Mina', 50, 38),
         ('Cuadrito De Pollo', 192, 18),
         ('Azúcar Saco 25 kg', 55, 403.64)
     ) as v(name, qty, unit_cost)

@@ -19,9 +19,13 @@ class CardsScreen extends ConsumerStatefulWidget {
 class _CardsScreenState extends ConsumerState<CardsScreen> {
   final _amount = TextEditingController();
   final _notes = TextEditingController();
+  final _openingP = TextEditingController();
+  final _openingF = TextEditingController();
   var _from = isoDate();
   var _to = isoDate();
   var _moveDate = isoDate();
+  var _openingDate = isoDate();
+  ({String asOf, double pAmount, double fAmount})? _opening;
   var _card = 'p';
   var _kind = 'transfer_to_cash';
   CardBalances? _ledger;
@@ -29,6 +33,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
   var _error = '';
   var _loading = true;
   var _saving = false;
+  var _savingOpening = false;
 
   @override
   void initState() {
@@ -40,6 +45,8 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
   void dispose() {
     _amount.dispose();
     _notes.dispose();
+    _openingP.dispose();
+    _openingF.dispose();
     super.dispose();
   }
 
@@ -68,13 +75,22 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
     try {
       final api = ref.read(wawaClientProvider);
       final ipvs = await api.ipvs();
-      final moves = await api.cashMoves(_from, _to);
+      final opening = await api.cardOpening();
+      final ledgerTo = opening != null && opening.asOf.compareTo(_to) > 0 ? opening.asOf : _to;
+      final moveFrom = opening != null && opening.asOf.compareTo(_from) < 0 ? opening.asOf : _from;
+      final moves = await api.cashMoves(moveFrom, ledgerTo);
       if (!mounted) {
         return;
       }
       setState(() {
-        _moves = moves;
-        _ledger = CardBalances.from(ipvs, moves, _from, _to);
+        _opening = opening;
+        if (opening != null) {
+          _openingDate = opening.asOf;
+          _openingP.text = opening.pAmount.toString();
+          _openingF.text = opening.fAmount.toString();
+        }
+        _moves = moves.where((move) => move.occurredOn.compareTo(_from) >= 0 && move.occurredOn.compareTo(_to) <= 0).toList();
+        _ledger = CardBalances.from(ipvs, moves, _from, _to, opening);
         _loading = false;
       });
     } catch (error) {
@@ -85,6 +101,34 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
         _error = error.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _saveOpening() async {
+    final auth = ref.read(authControllerProvider);
+    if (auth is! AuthAuthenticated) {
+      return;
+    }
+    setState(() {
+      _savingOpening = true;
+      _error = '';
+    });
+    try {
+      await ref.read(wawaClientProvider).saveCardOpening(
+        asOf: _openingDate,
+        pAmount: parseMoney(_openingP.text),
+        fAmount: parseMoney(_openingF.text),
+        updatedBy: auth.user.id,
+      );
+      await _load();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingOpening = false);
+      }
     }
   }
 
@@ -148,13 +192,37 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Recaudo IPV por Tarjeta P y Tarjeta F, y las extracciones a efectivo de cada una.',
+            'No se parte el recaudo viejo. Anota lo que hay hoy en cada tarjeta; desde esa fecha el IPV P/F y las extracciones nuevas sí cuentan.',
             style: TextStyle(color: AppColors.muted),
           ),
           ErrorBanner(_error),
           if (_loading) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
           if (!_loading && ledger != null) ...[
+            const SizedBox(height: 16),
+            const Text('Saldo Que Hay Ahora', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Desde *'),
+              subtitle: Text(formatDateOnly(_openingDate)),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.parse('${_openingDate}T00:00:00'),
+                  firstDate: DateTime(2024),
+                  lastDate: DateTime(2032),
+                );
+                if (picked != null) {
+                  setState(() => _openingDate = isoDate(picked));
+                }
+              },
+            ),
+            LabeledField(label: 'Tarjeta P *', controller: _openingP, keyboardType: TextInputType.number),
+            const SizedBox(height: 8),
+            LabeledField(label: 'Tarjeta F *', controller: _openingF, keyboardType: TextInputType.number),
             const SizedBox(height: 12),
+            PrimaryButton(label: 'Guardar Saldo Inicial', loading: _savingOpening, onPressed: _saveOpening),
+            const SizedBox(height: 16),
             _BankFace(name: 'Tarjeta P', letter: 'P', slice: ledger.p),
             const SizedBox(height: 12),
             _BankFace(name: 'Tarjeta F', letter: 'F', slice: ledger.f),
@@ -219,7 +287,9 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
               (move) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text('${move.cardLabel} · ${move.kindLabel}'),
-                subtitle: Text('${formatDateOnly(move.occurredOn)} · ${formatMoney(move.amount)}${move.notes.isEmpty ? '' : '\n${move.notes}'}'),
+                subtitle: Text(
+                  '${formatDateOnly(move.occurredOn)} · ${formatMoney(move.amount)}${move.notes.isEmpty ? '' : '\n${move.notes}'}${_opening != null && move.occurredOn.compareTo(_opening!.asOf) < 0 ? '\nNo entra en el saldo' : ''}',
+                ),
                 isThreeLine: move.notes.isNotEmpty,
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline, color: AppColors.danger),
@@ -290,11 +360,12 @@ class _BankFace extends StatelessWidget {
           ),
           const Align(
             alignment: Alignment.centerRight,
-            child: Text('Disponible En El Período', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            child: Text('Saldo', style: TextStyle(color: Colors.white70, fontSize: 12)),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
+              Expanded(child: _Mini(label: 'Inicial', value: slice.opening)),
               Expanded(child: _Mini(label: 'Recibido', value: slice.received)),
               Expanded(child: _Mini(label: 'Extraído', value: slice.withdrawn)),
               Expanded(child: _Mini(label: 'Depositado', value: slice.deposited)),

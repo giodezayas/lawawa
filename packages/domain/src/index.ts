@@ -18,6 +18,8 @@ export { CashMove, cashMoveKinds, transferCards } from './entities/cash_move';
 export type { CashMoveProps, CashMoveKind, TransferCard } from './entities/cash_move';
 export { CardLedger } from './entities/card_ledger';
 export type { CardSlice } from './entities/card_ledger';
+export { CardOpening } from './entities/card_opening';
+export type { CardOpeningProps } from './entities/card_opening';
 export { PeriodReport, FIXED_TAX_RATE } from './entities/period_report';
 export type { PeriodReportProps, PeriodLineProps } from './entities/period_report';
 export { SalesInsight } from './entities/sales_stats';
@@ -42,6 +44,7 @@ export type {
 } from './repositories/purchase_repository';
 export type { IpvRepository, CreateIpvInput, UpsertIpvLineInput } from './repositories/ipv_repository';
 export type { CashMoveRepository, CreateCashMoveInput } from './repositories/cash_move_repository';
+export type { CardOpeningRepository, UpsertCardOpeningInput } from './repositories/card_opening_repository';
 export type {
   ExpenseRepository,
   CreateExpenseEntryInput,
@@ -73,6 +76,7 @@ export { RemoveIpvLineUseCase } from './usecases/remove_ipv_line';
 export { CloseIpvUseCase } from './usecases/close_ipv';
 export { UpdateIpvCollectionsUseCase, GetCashFlowUseCase } from './usecases/ipv_cash';
 export { ListCashMovesUseCase, CreateCashMoveUseCase, DeleteCashMoveUseCase } from './usecases/cash_moves';
+export { GetCardOpeningUseCase, UpsertCardOpeningUseCase } from './usecases/card_opening';
 export { DeleteIpvUseCase } from './usecases/delete_ipv';
 export { ListPurchasesUseCase } from './usecases/list_purchases';
 export { GetPurchaseUseCase } from './usecases/get_purchase';

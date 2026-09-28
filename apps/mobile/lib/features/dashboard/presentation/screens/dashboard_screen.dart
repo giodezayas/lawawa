@@ -54,7 +54,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final todayFlow = await api.cashFlow(today, today);
       final periodFlow = await api.cashFlow(period.from, period.to);
       final ipvs = await api.ipvs();
-      final moves = await api.cashMoves(period.from, period.to);
+      final opening = await api.cardOpening();
+      final ledgerTo = opening != null && opening.asOf.compareTo(period.to) > 0 ? opening.asOf : period.to;
+      final moveFrom = opening != null && opening.asOf.compareTo(period.from) < 0 ? opening.asOf : period.from;
+      final moves = await api.cashMoves(moveFrom, ledgerTo);
       if (!mounted) {
         return;
       }
@@ -63,7 +66,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _period = report;
         _todayFlow = todayFlow;
         _periodFlow = periodFlow;
-        _cards = CardBalances.from(ipvs, moves, period.from, period.to);
+        _cards = CardBalances.from(ipvs, moves, period.from, period.to, opening);
         _lowStock = products.where((product) => product.isLowStock).toList();
         _from = period.from;
         _to = period.to;
@@ -186,14 +189,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             StatCard(label: 'Tarjeta P', value: formatMoney(_cards!.p.balance), tone: moneyColor(_cards!.p.balance)),
             const SizedBox(height: 4),
             Text(
-              'Recibido ${formatMoney(_cards!.p.received)} · Extraído ${formatMoney(_cards!.p.withdrawn)}',
+              'Inicial ${formatMoney(_cards!.p.opening)} · Recibido ${formatMoney(_cards!.p.received)} · Extraído ${formatMoney(_cards!.p.withdrawn)}',
               style: const TextStyle(color: AppColors.muted, fontSize: 12),
             ),
             const SizedBox(height: 8),
             StatCard(label: 'Tarjeta F', value: formatMoney(_cards!.f.balance), tone: moneyColor(_cards!.f.balance)),
             const SizedBox(height: 4),
             Text(
-              'Recibido ${formatMoney(_cards!.f.received)} · Extraído ${formatMoney(_cards!.f.withdrawn)}',
+              'Inicial ${formatMoney(_cards!.f.opening)} · Recibido ${formatMoney(_cards!.f.received)} · Extraído ${formatMoney(_cards!.f.withdrawn)}',
               style: const TextStyle(color: AppColors.muted, fontSize: 12),
             ),
             const SizedBox(height: 12),

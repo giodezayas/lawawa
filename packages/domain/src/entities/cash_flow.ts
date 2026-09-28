@@ -11,6 +11,7 @@ export type CashFlowProps = {
   readonly transferPurchases: number;
   readonly transferToCash: number;
   readonly cashToTransfer: number;
+  readonly firstSaleOn: string | null;
 };
 
 export type CashFlow = Readonly<CashFlowProps>;

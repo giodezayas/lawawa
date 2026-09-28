@@ -28,5 +28,6 @@ export function mapCashFlow(payload: Json): CashFlow {
     transferPurchases: asNumber(row.transfer_purchases),
     transferToCash: asNumber(row.transfer_to_cash),
     cashToTransfer: asNumber(row.cash_to_transfer),
+    firstSaleOn: typeof row.first_sale_on === 'string' ? row.first_sale_on : null,
   });
 }
