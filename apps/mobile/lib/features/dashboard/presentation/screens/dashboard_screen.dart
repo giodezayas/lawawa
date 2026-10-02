@@ -103,13 +103,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
   }
 
-  Future<void> _savePeriod() async {
+  Future<void> _savePeriod({String? from, String? to}) async {
     setState(() {
       _savingPeriod = true;
       _error = '';
     });
     try {
-      await ref.read(wawaClientProvider).setBillingPeriod(_from, _to);
+      await ref.read(wawaClientProvider).setBillingPeriod(from ?? _from, to ?? _to);
       await _load();
     } catch (error) {
       if (!mounted) {
@@ -121,6 +121,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         setState(() => _savingPeriod = false);
       }
     }
+  }
+
+  Future<void> _applyPreset(({String from, String to}) period) async {
+    setState(() {
+      _from = period.from;
+      _to = period.to;
+    });
+    await _savePeriod(from: period.from, to: period.to);
   }
 
   @override
@@ -144,7 +152,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const Text('Período De Trabajo', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           const Text(
-            'Caja y resultados usan estas fechas para no perder días fuera del mes.',
+            'Por defecto es el mes natural: día 1 hasta hoy. Puedes ver el mes anterior o elegir fechas.',
             style: TextStyle(color: AppColors.muted),
           ),
           ListTile(
@@ -159,8 +167,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             subtitle: Text(formatDateOnly(_to)),
             onTap: canManage ? () => _pickDate(isFrom: false) : null,
           ),
-          if (canManage)
+          if (canManage) ...[
             PrimaryButton(label: 'Guardar Período', loading: _savingPeriod, onPressed: _savePeriod),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: _savingPeriod ? null : () => _applyPreset(defaultBillingPeriod()),
+              child: const Text('Este Mes'),
+            ),
+            OutlinedButton(
+              onPressed: _savingPeriod ? null : () => _applyPreset(previousCalendarMonth()),
+              child: const Text('Mes Anterior'),
+            ),
+          ],
           const SizedBox(height: 20),
           if (stats != null) ...[
             const Text('Operación De Hoy', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),

@@ -8,6 +8,7 @@ import '../../../../data/wawa_providers.dart';
 import '../../../../shared/widgets/primary_button.dart';
 import '../../../../shared/widgets/ui.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import 'ipv_line_table_row.dart';
 
 class IpvEditorScreen extends ConsumerStatefulWidget {
   const IpvEditorScreen({super.key, this.ipvId});
@@ -20,7 +21,6 @@ class IpvEditorScreen extends ConsumerStatefulWidget {
 
 class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   final _date = TextEditingController(text: isoDate());
-  final _cash = TextEditingController();
   final _transferP = TextEditingController();
   final _transferF = TextEditingController();
   final _opening = TextEditingController();
@@ -31,10 +31,15 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   final _cost = TextEditingController();
   IpvDoc? _doc;
   List<ProductRow> _products = [];
+  List<ExpenseRow> _expenses = [];
   String? _selectedId;
   var _addsStock = false;
   var _error = '';
   var _loading = false;
+  var _addingLine = false;
+  String? _savingLineId;
+  String? _deletingLineId;
+  var _lineNotice = '';
 
   bool get _create => widget.ipvId == null;
   bool get _canEditClosed {
@@ -48,15 +53,26 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _transferP.addListener(_onTransferChanged);
+    _transferF.addListener(_onTransferChanged);
     _boot();
+  }
+
+  void _onTransferChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
     _date.dispose();
-    _cash.dispose();
-    _transferP.dispose();
-    _transferF.dispose();
+    _transferP
+      ..removeListener(_onTransferChanged)
+      ..dispose();
+    _transferF
+      ..removeListener(_onTransferChanged)
+      ..dispose();
     _opening.dispose();
     _inbound.dispose();
     _outbound.dispose();
@@ -69,7 +85,8 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   Future<void> _boot() async {
     try {
       final api = ref.read(wawaClientProvider);
-      _products = await api.products(activeOnly: true);
+      _products = await api.products();
+      _expenses = await api.expenses();
       if (widget.ipvId != null) {
         await _reload(widget.ipvId!);
       }
@@ -86,10 +103,43 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
   Future<void> _reload(String id) async {
     final doc = await ref.read(wawaClientProvider).ipv(id);
     _doc = doc;
-    _cash.text = doc.cashCollected.toString();
     _transferP.text = doc.transferPCollected.toString();
     _transferF.text = doc.transferFCollected.toString();
+    _expenses = await ref.read(wawaClientProvider).expenses();
     setState(() {});
+  }
+
+  void _showLineNotice(String message) {
+    setState(() => _lineNotice = message);
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _lineNotice = '');
+      }
+    });
+  }
+
+  IpvDoc _withLines(IpvDoc doc, List<IpvLineRow> lines) {
+    return IpvDoc(
+      id: doc.id,
+      workDate: doc.workDate,
+      status: doc.status,
+      cashCollected: doc.cashCollected,
+      transferPCollected: doc.transferPCollected,
+      transferFCollected: doc.transferFCollected,
+      lines: lines,
+    );
+  }
+
+  void _patchLine(IpvLineRow saved) {
+    final doc = _doc;
+    if (doc == null) {
+      return;
+    }
+    final exists = doc.lines.any((line) => line.id == saved.id);
+    final lines = exists
+        ? doc.lines.map((line) => line.id == saved.id ? saved : line).toList()
+        : [...doc.lines, saved];
+    setState(() => _doc = _withLines(doc, lines));
   }
 
   Future<void> _createIpv() async {
@@ -132,9 +182,12 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
         sortOrder = i;
       }
     }
-    setState(() => _error = '');
+    setState(() {
+      _error = '';
+      _addingLine = true;
+    });
     try {
-      await ref.read(wawaClientProvider).upsertIpvLine(
+      final saved = await ref.read(wawaClientProvider).upsertIpvLine(
         ipvId: doc.id,
         productId: product.id,
         productName: product.name,
@@ -155,9 +208,14 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
       _cost.clear();
       _selectedId = null;
       _addsStock = false;
-      await _reload(doc.id);
+      _patchLine(saved);
+      _showLineNotice('Producto agregado.');
     } catch (error) {
       setState(() => _error = error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _addingLine = false);
+      }
     }
   }
 
@@ -169,7 +227,6 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
     try {
       await ref.read(wawaClientProvider).updateIpvCollections(
         doc.id,
-        parseMoney(_cash.text),
         parseMoney(_transferP.text),
         parseMoney(_transferF.text),
       );
@@ -188,7 +245,6 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
     try {
       await ref.read(wawaClientProvider).updateIpvCollections(
         doc.id,
-        parseMoney(_cash.text),
         parseMoney(_transferP.text),
         parseMoney(_transferF.text),
       );
@@ -221,7 +277,13 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final collected = parseMoney(_cash.text) + parseMoney(_transferP.text) + parseMoney(_transferF.text);
+    final cash = ((doc.saleTotal - parseMoney(_transferP.text) - parseMoney(_transferF.text)) * 100).round() / 100;
+    final collected = cash + parseMoney(_transferP.text) + parseMoney(_transferF.text);
+    final cut = IpvDayCut.compute(
+      grossProfit: doc.grossProfit,
+      taxableGrossProfit: taxableGrossForLines(doc.lines, _products),
+      otherExpenses: otherExpensesOnDate(_expenses, doc.workDate),
+    );
     return Scaffold(
       appBar: AppBar(title: Text('IPV ${_isClosed ? 'Cerrado' : 'Abierto'}')),
       body: ListView(
@@ -229,21 +291,43 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
         children: [
           Text(formatDateOnly(doc.workDate), style: const TextStyle(color: AppColors.muted)),
           ErrorBanner(_error),
+          if (_lineNotice.isNotEmpty) Text(_lineNotice, style: const TextStyle(color: AppColors.primary)),
           StatCard(label: 'Total De Venta', value: formatMoney(doc.saleTotal)),
           const SizedBox(height: 8),
           StatCard(label: 'Ganancia Bruta', value: formatMoney(doc.grossProfit), tone: moneyColor(doc.grossProfit)),
           const SizedBox(height: 16),
+          const Text('Si Cobramos Hoy', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          const Text(
+            'Salario, la parte del día de los gastos (también los mensuales) e impuesto a reservar. Lo que queda se parte a la mitad entre los dos dueños.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          StatCard(label: 'Salario', value: formatMoney(cut.salary), tone: AppColors.danger),
+          const SizedBox(height: 8),
+          StatCard(label: 'Gastos A Reservar', value: formatMoney(cut.otherExpenses), tone: AppColors.danger),
+          const SizedBox(height: 8),
+          StatCard(label: 'Impuesto A Reservar', value: formatMoney(cut.tax), tone: AppColors.danger),
+          const SizedBox(height: 8),
+          StatCard(label: 'Neta Del Día', value: formatMoney(cut.net), tone: moneyColor(cut.net)),
+          const SizedBox(height: 8),
+          StatCard(label: 'Cada Dueño', value: formatMoney(cut.ownerShare), tone: moneyColor(cut.ownerShare)),
+          const SizedBox(height: 16),
           const Text('Recaudo Del Día', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          LabeledField(label: 'Efectivo', controller: _cash, keyboardType: TextInputType.number, enabled: !_locked),
+          StatCard(label: 'Efectivo', value: formatMoney(cash), tone: moneyColor(cash)),
+          const SizedBox(height: 4),
+          const Text('Venta menos tarjetas P y F.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
           const SizedBox(height: 8),
           LabeledField(label: 'Tarjeta P', controller: _transferP, keyboardType: TextInputType.number, enabled: !_locked),
           const SizedBox(height: 8),
           LabeledField(label: 'Tarjeta F', controller: _transferF, keyboardType: TextInputType.number, enabled: !_locked),
           const SizedBox(height: 8),
           Text(
-            'Venta ${formatMoney(doc.saleTotal)} · Recaudado ${formatMoney(collected)} · Diferencia ${formatMoney(collected - doc.saleTotal)}',
-            style: const TextStyle(color: AppColors.muted),
+            cash < 0
+                ? 'La transferencia supera la venta.'
+                : 'Venta ${formatMoney(doc.saleTotal)} · Recaudado ${formatMoney(collected)} · Efectivo Luego Del Salario ${formatMoney(cash - ipvDailySalary)}',
+            style: TextStyle(color: cash < 0 ? AppColors.danger : AppColors.muted),
           ),
           if (!_locked) ...[
             const SizedBox(height: 12),
@@ -255,7 +339,8 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
               items: _products
                   .where(
                     (product) =>
-                        product.id == _selectedId || !doc.lines.any((line) => line.productId == product.id),
+                        product.id == _selectedId ||
+                        (product.isActive && !doc.lines.any((line) => line.productId == product.id)),
                   )
                   .map((product) => DropdownMenuItem(value: product.id, child: Text(product.name)))
                   .toList(),
@@ -269,9 +354,13 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
                 setState(() {
                   _selectedId = id;
                   if (product != null) {
-                    _opening.text = product.stockQty.toString();
+                    final fromSack = product.name == 'Azúcar Por Libras';
+                    _opening.text = fromSack ? '0' : product.stockQty.toString();
                     _salePrice.text = product.salePrice.toString();
                     _cost.text = product.replenishmentCost.toString();
+                    if (fromSack) {
+                      _addsStock = false;
+                    }
                   }
                 });
               },
@@ -280,66 +369,127 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
             LabeledField(label: 'Entradas', controller: _inbound, keyboardType: TextInputType.number),
             LabeledField(label: 'Salidas', controller: _outbound, keyboardType: TextInputType.number),
             LabeledField(label: 'Vendidos', controller: _sold, keyboardType: TextInputType.number),
+            if (_products.any((product) => product.id == _selectedId && product.name == 'Azúcar Por Libras'))
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Pon en Vendidos las libras del día. Al cerrar el IPV se rebajan del saco.',
+                  style: TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+              ),
             LabeledField(label: 'Precio De Venta', controller: _salePrice, keyboardType: TextInputType.number),
             LabeledField(label: 'Costo De Reposición', controller: _cost, keyboardType: TextInputType.number),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('La Entrada Suma Stock'),
               subtitle: const Text(
-                'Si embolsas azúcar, al cerrar se descuenta del saco.',
+                'Si embolsas azúcar 1 lb o 1 kg, al cerrar se descuenta del saco. Azúcar Por Libras se rebaja con Vendidos.',
               ),
               value: _addsStock,
               onChanged: (value) => setState(() => _addsStock = value),
             ),
             PrimaryButton(
               label: doc.lines.any((line) => line.productId == _selectedId) ? 'Guardar Producto' : 'Agregar Producto Al IPV',
+              loading: _addingLine,
               onPressed: _addLine,
             ),
           ],
           const SizedBox(height: 16),
-          ...doc.lines.map(
-            (line) => Card(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(line.productName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Vendidos ${line.soldQty} · Final ${line.closingQty} · ${formatMoney(line.saleTotal)}',
-                      style: const TextStyle(color: AppColors.muted),
-                    ),
-                    if (!_locked)
-                      Row(
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _selectedId = line.productId;
-                                _opening.text = line.openingQty.toString();
-                                _inbound.text = line.inboundQty.toString();
-                                _outbound.text = line.outboundQty.toString();
-                                _sold.text = line.soldQty.toString();
-                                _salePrice.text = line.salePrice.toString();
-                                _cost.text = line.replenishmentCost.toString();
-                                _addsStock = line.inboundAddsStock;
-                              });
-                            },
-                            child: const Text('Editar'),
-                          ),
-                          TextButton(
-                            onPressed: () async {
-                              await ref.read(wawaClientProvider).removeIpvLine(line.id);
-                              await _reload(doc.id);
-                            },
-                            child: const Text('Quitar', style: TextStyle(color: AppColors.danger)),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(1.6),
+              1: FlexColumnWidth(1),
+              2: FlexColumnWidth(1),
+              3: FlexColumnWidth(1),
+              4: FlexColumnWidth(1),
+              5: FlexColumnWidth(1),
+            },
+            children: const [
+              TableRow(
+                children: [
+                  _Head('Producto'),
+                  _Head('Inicio'),
+                  _Head('Ent.'),
+                  _Head('Sal.'),
+                  _Head('Vend.'),
+                  _Head('Final'),
+                ],
               ),
+            ],
+          ),
+          ...doc.lines.map(
+            (line) => IpvLineTableRow(
+              key: ValueKey(line.id),
+              line: line,
+              locked: _locked,
+              saving: _savingLineId == line.id,
+              removing: _deletingLineId == line.id,
+              onSave: ({
+                required openingQty,
+                required inboundQty,
+                required outboundQty,
+                required soldQty,
+                required salePrice,
+                required replenishmentCost,
+                required inboundAddsStock,
+              }) async {
+                setState(() {
+                  _error = '';
+                  _savingLineId = line.id;
+                });
+                try {
+                  final saved = await ref.read(wawaClientProvider).upsertIpvLine(
+                    id: line.id,
+                    ipvId: doc.id,
+                    productId: line.productId,
+                    productName: line.productName,
+                    openingQty: openingQty,
+                    inboundQty: inboundQty,
+                    outboundQty: outboundQty,
+                    soldQty: soldQty,
+                    salePrice: salePrice,
+                    replenishmentCost: replenishmentCost,
+                    inboundAddsStock: inboundAddsStock,
+                    sortOrder: doc.lines.indexWhere((item) => item.id == line.id),
+                  );
+                  _patchLine(saved);
+                  _showLineNotice('Producto guardado.');
+                } catch (error) {
+                  setState(() => _error = error.toString());
+                } finally {
+                  if (mounted) {
+                    setState(() => _savingLineId = null);
+                  }
+                }
+              },
+              onRemove: () async {
+                if (!await confirmAction(context, '¿Quitar este producto del IPV?')) {
+                  return;
+                }
+                setState(() {
+                  _error = '';
+                  _deletingLineId = line.id;
+                });
+                try {
+                  await ref.read(wawaClientProvider).removeIpvLine(line.id);
+                  final current = _doc;
+                  if (current != null) {
+                    setState(() {
+                      _doc = _withLines(
+                        current,
+                        current.lines.where((item) => item.id != line.id).toList(),
+                      );
+                    });
+                  }
+                  _showLineNotice('Producto quitado.');
+                } catch (error) {
+                  setState(() => _error = error.toString());
+                } finally {
+                  if (mounted) {
+                    setState(() => _deletingLineId = null);
+                  }
+                }
+              },
             ),
           ),
           const SizedBox(height: 16),
@@ -351,6 +501,11 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
                   ? 'Este IPV está cerrado. Como manager o admin puedes corregirlo.'
                   : 'Este IPV está cerrado. El stock del catálogo queda igual al stock final de cada producto.',
               style: const TextStyle(color: AppColors.muted),
+            ),
+          if (!_isClosed)
+            Text(
+              'Al cerrar se registra el salario de ${formatMoney(ipvDailySalary)} como gasto del día.',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
             ),
           TextButton(
             onPressed: () async {
@@ -366,6 +521,20 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Head extends StatelessWidget {
+  const _Head(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11)),
     );
   }
 }

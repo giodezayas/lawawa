@@ -67,6 +67,7 @@ export class ProductRepositoryImpl implements ProductRepository {
     purchasePrice: number;
     replenishmentCost: number;
     minStock: number;
+    countsForTax?: boolean;
   }): Promise<Product> {
     const { data, error } = await this.client
       .from('products')
@@ -76,6 +77,7 @@ export class ProductRepositoryImpl implements ProductRepository {
         purchase_price: input.purchasePrice,
         replenishment_cost: input.replenishmentCost,
         min_stock: input.minStock,
+        counts_for_tax: input.countsForTax !== false,
       })
       .select('id')
       .single();
@@ -98,6 +100,7 @@ export class ProductRepositoryImpl implements ProductRepository {
     replenishmentCost: number;
     minStock: number;
     isActive: boolean;
+    countsForTax: boolean;
   }): Promise<Product> {
     const { error } = await this.client
       .from('products')
@@ -108,6 +111,7 @@ export class ProductRepositoryImpl implements ProductRepository {
         replenishment_cost: input.replenishmentCost,
         min_stock: input.minStock,
         is_active: input.isActive,
+        counts_for_tax: input.countsForTax,
       })
       .eq('id', input.id);
 

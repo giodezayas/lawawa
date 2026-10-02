@@ -28,6 +28,7 @@ class WawaClient {
       minStock: asNum(row['min_stock']),
       stockQty: asNum(row['stock_qty']),
       isActive: row['is_active'] as bool? ?? true,
+      countsForTax: row['counts_for_tax'] as bool? ?? true,
     );
   }
 
@@ -67,9 +68,12 @@ class WawaClient {
     return _run(() async {
       final row = await _client
           .from('business_settings')
-          .select('billing_period_from, billing_period_to')
+          .select('billing_period_from, billing_period_to, billing_period_live')
           .limit(1)
           .maybeSingle();
+      if (row?['billing_period_live'] != false) {
+        return defaultBillingPeriod();
+      }
       final from = row?['billing_period_from'] as String?;
       final to = row?['billing_period_to'] as String?;
       if (from != null && to != null && to.compareTo(from) >= 0) {
@@ -87,10 +91,17 @@ class WawaClient {
       }
       final row = await _client
           .from('business_settings')
-          .update({'billing_period_from': from, 'billing_period_to': to})
+          .update({
+            'billing_period_from': from,
+            'billing_period_to': to,
+            'billing_period_live': isLiveCurrentMonth(from, to),
+          })
           .eq('id', existing['id'] as String)
-          .select('billing_period_from, billing_period_to')
+          .select('billing_period_from, billing_period_to, billing_period_live')
           .single();
+      if (row['billing_period_live'] != false) {
+        return defaultBillingPeriod();
+      }
       return (from: '${row['billing_period_from']}', to: '${row['billing_period_to']}');
     });
   }
@@ -120,6 +131,7 @@ class WawaClient {
         saleTotal: asNum(row['sale_total']),
         purchaseTotal: (purchaseTotal * 100).round() / 100,
         grossProfit: asNum(row['gross_profit']),
+        taxableGrossProfit: asNum(row['taxable_gross_profit']),
         expenseTotal: asNum(row['expense_total']),
         utilidad: asNum(row['utilidad']),
         tax: asNum(row['tax']),
@@ -154,6 +166,14 @@ class WawaClient {
         transferIn: asNum(row['transfer_in']),
         cashOut: asNum(row['cash_out']),
         transferOut: asNum(row['transfer_out']),
+        ipvCash: asNum(row['ipv_cash']),
+        ipvTransfer: asNum(row['ipv_transfer']),
+        cashPurchases: asNum(row['cash_purchases']),
+        transferPurchases: asNum(row['transfer_purchases']),
+        transferToCash: asNum(row['transfer_to_cash']),
+        cashToTransfer: asNum(row['cash_to_transfer']),
+        ipvSalary: asNum(row['ipv_salary']),
+        firstSaleOn: row['first_sale_on'] is String ? row['first_sale_on'] as String : null,
       );
     });
   }
@@ -288,6 +308,7 @@ class WawaClient {
     required double purchasePrice,
     required double replenishmentCost,
     required double minStock,
+    bool countsForTax = true,
   }) {
     return _run(() async {
       await _client.from('products').insert({
@@ -296,6 +317,7 @@ class WawaClient {
         'purchase_price': purchasePrice,
         'replenishment_cost': replenishmentCost,
         'min_stock': minStock,
+        'counts_for_tax': countsForTax,
       });
     });
   }
@@ -308,6 +330,7 @@ class WawaClient {
     required double replenishmentCost,
     required double minStock,
     required bool isActive,
+    required bool countsForTax,
   }) {
     return _run(() async {
       await _client.from('products').update({
@@ -317,6 +340,7 @@ class WawaClient {
         'replenishment_cost': replenishmentCost,
         'min_stock': minStock,
         'is_active': isActive,
+        'counts_for_tax': countsForTax,
       }).eq('id', id);
     });
   }
@@ -417,7 +441,8 @@ class WawaClient {
     });
   }
 
-  Future<void> upsertIpvLine({
+  Future<IpvLineRow> upsertIpvLine({
+    String? id,
     required String ipvId,
     required String productId,
     required String productName,
@@ -431,12 +456,6 @@ class WawaClient {
     required int sortOrder,
   }) {
     return _run(() async {
-      final existing = await _client
-          .from('ipv_lines')
-          .select('id')
-          .eq('ipv_id', ipvId)
-          .eq('product_id', productId)
-          .maybeSingle();
       final payload = {
         'opening_qty': openingQty,
         'inbound_qty': inboundQty,
@@ -447,16 +466,28 @@ class WawaClient {
         'inbound_adds_stock': inboundAddsStock,
         'sort_order': sortOrder,
       };
-      if (existing != null) {
-        await _client.from('ipv_lines').update(payload).eq('id', existing['id'] as String);
-        return;
+      var lineId = id;
+      if (lineId == null) {
+        final existing = await _client
+            .from('ipv_lines')
+            .select('id')
+            .eq('ipv_id', ipvId)
+            .eq('product_id', productId)
+            .maybeSingle();
+        lineId = existing?['id'] as String?;
       }
-      await _client.from('ipv_lines').insert({
-        'ipv_id': ipvId,
-        'product_id': productId,
-        'product_name': productName,
-        ...payload,
-      });
+      final Map<String, dynamic> row;
+      if (lineId != null) {
+        row = await _client.from('ipv_lines').update(payload).eq('id', lineId).select().single();
+      } else {
+        row = await _client.from('ipv_lines').insert({
+          'ipv_id': ipvId,
+          'product_id': productId,
+          'product_name': productName,
+          ...payload,
+        }).select().single();
+      }
+      return _ipvLine(row);
     });
   }
 
@@ -466,8 +497,16 @@ class WawaClient {
     });
   }
 
-  Future<void> updateIpvCollections(String id, double cash, double transferP, double transferF) {
+  Future<void> updateIpvCollections(String id, double transferP, double transferF) {
     return _run(() async {
+      if (transferP < 0 || transferF < 0) {
+        throw const DomainError('Las transferencias no pueden ser negativas.', 'ERR');
+      }
+      final doc = await ipv(id);
+      final cash = ((doc.saleTotal - transferP - transferF) * 100).round() / 100;
+      if (cash < 0) {
+        throw const DomainError('La transferencia no puede ser mayor que la venta del día.', 'ERR');
+      }
       final row = await _client
           .from('ipv_documents')
           .update({

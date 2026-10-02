@@ -9,6 +9,8 @@ import {
   Product,
   formatDateOnly,
   formatMoney,
+  defaultBillingPeriod,
+  previousCalendarMonth,
   todayIsoDate,
 } from '@wawa/domain';
 import { useEffect, useState } from 'react';
@@ -66,17 +68,23 @@ export function DashboardScreen() {
     });
   }, [container]);
 
-  async function savePeriod() {
+  async function savePeriod(nextFrom = periodFrom, nextTo = periodTo) {
     setSavingPeriod(true);
     setPageError('');
     try {
-      const saved = await container.setBillingPeriod.execute(periodFrom, periodTo);
+      const saved = await container.setBillingPeriod.execute(nextFrom, nextTo);
       await load(saved.from, saved.to);
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el período.');
     } finally {
       setSavingPeriod(false);
     }
+  }
+
+  async function applyPreset(period: { from: string; to: string }) {
+    setPeriodFrom(period.from);
+    setPeriodTo(period.to);
+    await savePeriod(period.from, period.to);
   }
 
   const taxPercent = Math.round(FIXED_TAX_RATE * 100);
@@ -96,7 +104,7 @@ export function DashboardScreen() {
       <section className="space-y-3 rounded-3xl border border-line bg-white px-5 py-4">
         <h2 className="text-sm font-semibold text-primary">Período De Trabajo</h2>
         <p className="text-sm text-muted">
-          Caja, resultados e impuestos usan estas fechas. Así no se pierde el 31 de agosto u otros días fuera del mes.
+          Por defecto es el mes natural: día 1 hasta hoy. Puedes ver el mes anterior o elegir fechas.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
@@ -115,9 +123,27 @@ export function DashboardScreen() {
           />
         </div>
         {canManage ? (
-          <PrimaryButton type="button" loading={savingPeriod} onClick={() => void savePeriod()}>
-            Guardar Período
-          </PrimaryButton>
+          <div className="flex flex-wrap gap-2">
+            <PrimaryButton type="button" loading={savingPeriod} onClick={() => void savePeriod()}>
+              Guardar Período
+            </PrimaryButton>
+            <button
+              type="button"
+              className="btn-outline h-12 rounded-2xl px-5 text-sm font-semibold"
+              disabled={savingPeriod}
+              onClick={() => void applyPreset(defaultBillingPeriod())}
+            >
+              Este Mes
+            </button>
+            <button
+              type="button"
+              className="btn-outline h-12 rounded-2xl px-5 text-sm font-semibold"
+              disabled={savingPeriod}
+              onClick={() => void applyPreset(previousCalendarMonth())}
+            >
+              Mes Anterior
+            </button>
+          </div>
         ) : null}
       </section>
       {!stats ? (
@@ -205,6 +231,7 @@ export function DashboardScreen() {
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Impuestos A Pagar</p>
                   <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(month.tax)}</p>
+                  <p className="mt-2 text-right text-xs text-muted">Sobre productos que tributan</p>
                 </article>
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Te Quedas</p>

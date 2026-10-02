@@ -6,6 +6,7 @@ export type CreateProductInput = {
   purchasePrice: number;
   replenishmentCost: number;
   minStock: number;
+  countsForTax: boolean;
 };
 
 export type UpdateProductInput = {
@@ -16,6 +17,7 @@ export type UpdateProductInput = {
   replenishmentCost: number;
   minStock: number;
   isActive: boolean;
+  countsForTax: boolean;
 };
 
 export interface ProductRepository {

@@ -37,6 +37,7 @@ export function mapPeriodReport(payload: Json): PeriodReport {
     saleTotal: asNumber(row.sale_total),
     purchaseTotal: asNumber(row.purchase_total),
     grossProfit: asNumber(row.gross_profit),
+    taxableGrossProfit: asNumber(row.taxable_gross_profit),
     expenseTotal: asNumber(row.expense_total),
     utilidad: asNumber(row.utilidad),
     tax: asNumber(row.tax),

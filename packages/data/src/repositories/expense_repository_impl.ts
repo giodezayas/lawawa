@@ -7,6 +7,7 @@ import {
   type ExpenseRepository,
   type UpdateExpenseEntryInput,
   defaultBillingPeriod,
+  isLiveCurrentMonth,
 } from '@wawa/domain';
 import { mapExpenseEntry } from '../mappers/expense_mapper';
 import { mapPeriodReport } from '../mappers/period_report_mapper';
@@ -127,11 +128,14 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
     const fallback = defaultBillingPeriod();
     const { data, error } = await this.client
       .from('business_settings')
-      .select('billing_period_from, billing_period_to')
+      .select('billing_period_from, billing_period_to, billing_period_live')
       .limit(1)
       .maybeSingle();
     if (error) {
       throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
+    }
+    if (data?.billing_period_live !== false) {
+      return fallback;
     }
     const from = data?.billing_period_from;
     const to = data?.billing_period_to;
@@ -149,14 +153,18 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
     if (!existing) {
       throw new DomainError('No hay ajustes del negocio.', InventoryErrorCodes.notFound);
     }
+    const live = isLiveCurrentMonth(from, to);
     const { data, error } = await this.client
       .from('business_settings')
-      .update({ billing_period_from: from, billing_period_to: to })
+      .update({ billing_period_from: from, billing_period_to: to, billing_period_live: live })
       .eq('id', existing.id)
-      .select('billing_period_from, billing_period_to')
+      .select('billing_period_from, billing_period_to, billing_period_live')
       .single();
     if (error || !data?.billing_period_from || !data.billing_period_to) {
       throw new DomainError(error?.message ?? 'No se pudo guardar el período.', InventoryErrorCodes.invalidInput);
+    }
+    if (data.billing_period_live !== false) {
+      return defaultBillingPeriod();
     }
     return { from: data.billing_period_from, to: data.billing_period_to };
   }

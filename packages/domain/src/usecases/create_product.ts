@@ -11,6 +11,7 @@ export class CreateProductUseCase {
     purchasePrice: number;
     replenishmentCost: number;
     minStock: number;
+    countsForTax?: boolean;
   }): Promise<Product> {
     const name = input.name.trim();
     if (name.length === 0) {
@@ -32,6 +33,7 @@ export class CreateProductUseCase {
       purchasePrice: input.purchasePrice,
       replenishmentCost: input.replenishmentCost,
       minStock: input.minStock,
+      countsForTax: input.countsForTax !== false,
     });
   }
 }

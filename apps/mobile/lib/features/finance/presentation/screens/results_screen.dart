@@ -95,7 +95,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
           children: [
             TextButton(
               onPressed: () {
-                final next = shiftBillingRange(_from, _to, -1);
+                  final next = shiftCalendarMonth(_from, -1);
                 setState(() {
                   _from = next.from;
                   _to = next.to;
@@ -113,7 +113,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
             ),
             TextButton(
               onPressed: () {
-                final next = shiftBillingRange(_from, _to, 1);
+                  final next = shiftCalendarMonth(_from, 1);
                 setState(() {
                   _from = next.from;
                   _to = next.to;
@@ -161,6 +161,8 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
           ),
           const SizedBox(height: 8),
           StatCard(label: 'Ganancia Bruta', value: formatMoney(report.grossProfit), tone: moneyColor(report.grossProfit)),
+          const SizedBox(height: 8),
+          StatCard(label: 'Ganancia Que Tributa', value: formatMoney(report.taxableGrossProfit)),
           const SizedBox(height: 8),
           StatCard(label: 'Gastos', value: formatMoney(report.expenseTotal)),
           const SizedBox(height: 8),

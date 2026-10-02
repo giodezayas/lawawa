@@ -94,30 +94,32 @@ class CashFlowCards extends StatelessWidget {
       children: [
         Text(title, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        const Text(
-          'Las compras de antes de la primera venta no entran. Eso es inversión.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12),
+        Text(
+          flow.firstSaleOn == null
+              ? 'Todavía no hay venta, así que no hay flujo de caja.'
+              : 'Empieza el ${formatDateOnly(flow.firstSaleOn!)}, con la primera venta. Las compras de antes son inversión y no entran aquí.',
+          style: const TextStyle(color: AppColors.muted, fontSize: 12),
         ),
         const SizedBox(height: 12),
         StatCard(
           label: 'Efectivo',
           value: formatMoney(flow.cashNet),
-          tone: flow.cashNet < 0 ? AppColors.danger : AppColors.success,
+          tone: moneyColor(flow.cashNet),
         ),
         const SizedBox(height: 8),
         Text(
-          'Entra ${formatMoney(flow.cashIn)} · Sale ${formatMoney(flow.cashOut)}',
+          'IPV ${formatMoney(flow.ipvCash)} · De Transferencia ${formatMoney(flow.transferToCash)} · Compras ${formatMoney(flow.cashPurchases)}${flow.ipvSalary > 0 ? ' · Salario ${formatMoney(flow.ipvSalary)}' : ''}${flow.cashToTransfer > 0 ? ' · A Transferencia ${formatMoney(flow.cashToTransfer)}' : ''}',
           style: const TextStyle(color: AppColors.muted, fontSize: 12),
         ),
         const SizedBox(height: 12),
         StatCard(
           label: 'Transferencia',
           value: formatMoney(flow.transferNet),
-          tone: flow.transferNet < 0 ? AppColors.danger : AppColors.success,
+          tone: moneyColor(flow.transferNet),
         ),
         const SizedBox(height: 8),
         Text(
-          'Entra ${formatMoney(flow.transferIn)} · Sale ${formatMoney(flow.transferOut)}',
+          'IPV ${formatMoney(flow.ipvTransfer)} · Compras ${formatMoney(flow.transferPurchases)} · Extracciones ${formatMoney(flow.transferToCash)}${flow.cashToTransfer > 0 ? ' · De Efectivo ${formatMoney(flow.cashToTransfer)}' : ''}',
           style: const TextStyle(color: AppColors.muted, fontSize: 12),
         ),
       ],

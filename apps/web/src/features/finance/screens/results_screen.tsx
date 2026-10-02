@@ -5,7 +5,7 @@ import {
   User,
   formatDateOnly,
   formatMoney,
-  shiftBillingRange,
+  shiftCalendarMonth,
   todayIsoDate,
 } from '@wawa/domain';
 import { useEffect, useState } from 'react';
@@ -73,7 +73,7 @@ export function ResultsScreen() {
   }
 
   function shift(direction: number) {
-    const next = shiftBillingRange(from, to, direction);
+    const next = shiftCalendarMonth(from, direction);
     setFrom(next.from);
     setTo(next.to);
   }
@@ -97,7 +97,8 @@ export function ResultsScreen() {
                 ['Venta', formatMoney(report.saleTotal)],
                 ['Invertido', formatMoney(report.purchaseTotal)],
                 ['Venta Vs Invertido', formatMoney(PeriodReport.vsInvested(report))],
-                ['Ganancia Bruta', formatMoney(report.grossProfit)],
+                [`Ganancia Bruta`, formatMoney(report.grossProfit)],
+                ['Ganancia Que Tributa', formatMoney(report.taxableGrossProfit)],
                 ['Gastos', formatMoney(report.expenseTotal)],
                 ['Utilidad', formatMoney(report.utilidad)],
                 [`Impuesto ${taxPercent}%`, formatMoney(report.tax)],
@@ -204,12 +205,17 @@ export function ResultsScreen() {
           </section>
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-primary">Impuesto Y Lo Que Te Quedas</h2>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <p className="text-sm text-muted">El 25% se calcula sobre la ganancia de productos que tributan, menos gastos.</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Utilidad</p>
                 <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(report.utilidad)}`}>
                   {formatMoney(report.utilidad)}
                 </p>
+              </article>
+              <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                <p className="text-sm font-medium text-muted">Ganancia Que Tributa</p>
+                <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(report.taxableGrossProfit)}</p>
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Impuesto {taxPercent}%</p>

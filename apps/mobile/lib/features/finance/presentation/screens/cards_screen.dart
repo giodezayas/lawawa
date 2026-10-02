@@ -190,6 +190,33 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
             '${formatDateOnly(_from)} — ${formatDateOnly(_to)}',
             style: const TextStyle(color: AppColors.muted),
           ),
+          Row(
+            children: [
+              TextButton(
+                onPressed: () {
+                  final next = shiftCalendarMonth(_from, -1);
+                  setState(() {
+                    _from = next.from;
+                    _to = next.to;
+                  });
+                  _load();
+                },
+                child: const Text('Anterior'),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  final next = shiftCalendarMonth(_from, 1);
+                  setState(() {
+                    _from = next.from;
+                    _to = next.to;
+                  });
+                  _load();
+                },
+                child: const Text('Siguiente'),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           const Text(
             'No se parte el recaudo viejo. Anota lo que hay hoy en cada tarjeta; desde esa fecha el IPV P/F y las extracciones nuevas sí cuentan.',

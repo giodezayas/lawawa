@@ -76,7 +76,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 child: ListTile(
                   title: Text(product.name),
                   subtitle: Text(
-                    'Stock ${product.stockQty} · Venta ${formatMoney(product.salePrice)}${product.isLowStock ? ' · Bajo Stock' : ''}',
+                    'Stock ${product.stockQty} · Venta ${formatMoney(product.salePrice)}${product.countsForTax ? '' : ' · No tributa'}${product.isLowStock ? ' · Bajo Stock' : ''}',
                     style: TextStyle(color: product.isLowStock ? AppColors.danger : AppColors.muted),
                   ),
                   trailing: const Icon(Icons.chevron_right),

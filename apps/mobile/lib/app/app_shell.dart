@@ -6,6 +6,7 @@ import '../features/auth/presentation/providers/auth_providers.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/finance/presentation/screens/cards_screen.dart';
 import '../features/finance/presentation/screens/expense_list_screen.dart';
+import '../features/finance/presentation/screens/reports_screen.dart';
 import '../features/finance/presentation/screens/results_screen.dart';
 import '../features/inventory/presentation/screens/ipv_list_screen.dart';
 import '../features/inventory/presentation/screens/products_screen.dart';
@@ -59,6 +60,24 @@ class _AppShellState extends ConsumerState<AppShell> {
               ),
             ),
             ListTile(
+              title: const Text('Inicio'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _index = 0);
+              },
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text('INVENTARIO', style: TextStyle(fontSize: 11, letterSpacing: 1.4, color: AppColors.primary, fontWeight: FontWeight.w700)),
+            ),
+            ListTile(
+              title: const Text('IPV'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _index = 1);
+              },
+            ),
+            ListTile(
               title: const Text('Productos'),
               onTap: () {
                 Navigator.pop(context);
@@ -72,6 +91,24 @@ class _AppShellState extends ConsumerState<AppShell> {
                 Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PurchaseListScreen()));
               },
             ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text('FINANZAS', style: TextStyle(fontSize: 11, letterSpacing: 1.4, color: AppColors.primary, fontWeight: FontWeight.w700)),
+            ),
+            ListTile(
+              title: const Text('Resultados'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _index = 3);
+              },
+            ),
+            ListTile(
+              title: const Text('Reportes'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ReportsScreen()));
+              },
+            ),
             ListTile(
               title: const Text('Tarjetas'),
               onTap: () {
@@ -79,7 +116,18 @@ class _AppShellState extends ConsumerState<AppShell> {
                 Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const CardsScreen()));
               },
             ),
-            if (canManage)
+            ListTile(
+              title: const Text('Gastos'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _index = 2);
+              },
+            ),
+            if (canManage) ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text('EQUIPO', style: TextStyle(fontSize: 11, letterSpacing: 1.4, color: AppColors.primary, fontWeight: FontWeight.w700)),
+              ),
               ListTile(
                 title: const Text('Usuarios'),
                 onTap: () {
@@ -87,6 +135,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                   Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const UserListScreen()));
                 },
               ),
+            ],
           ],
         ),
       ),

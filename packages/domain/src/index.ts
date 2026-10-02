@@ -8,8 +8,10 @@ export { Product, StockMovement } from './entities/product';
 export type { ProductProps, StockMovementKind, StockMovementProps } from './entities/product';
 export type { PurchaseDocumentProps, PurchaseLineProps, PaymentMethod } from './entities/purchase';
 export { PurchaseDocument, PurchaseLine, paymentMethods } from './entities/purchase';
-export { IpvDocument, IpvLine, ipvShifts, ipvStatuses } from './entities/ipv';
+export { IpvDocument, IpvLine, ipvShifts, ipvStatuses, IPV_DAILY_SALARY } from './entities/ipv';
 export type { IpvDocumentProps, IpvLineProps, IpvShift, IpvStatus } from './entities/ipv';
+export { ipvDayCut, taxableGrossProfit, otherExpensesOnDate, IPV_OWNER_COUNT } from './entities/ipv_day_cut';
+export type { IpvDayCut } from './entities/ipv_day_cut';
 export { ExpenseCategory, ExpenseEntry, expenseKinds, expenseCadences } from './entities/expense';
 export type { ExpenseCategoryProps, ExpenseEntryProps, ExpenseKind, ExpenseCadence } from './entities/expense';
 export { CashFlow } from './entities/cash_flow';
@@ -108,6 +110,9 @@ export { isValidUsername } from './shared/username';
 export {
   isBillingRange,
   defaultBillingPeriod,
+  isLiveCurrentMonth,
+  shiftCalendarMonth,
+  previousCalendarMonth,
   shiftBillingRange,
 } from './shared/billing_period';
 export type { BillingPeriodBounds } from './shared/billing_period';

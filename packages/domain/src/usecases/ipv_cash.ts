@@ -1,14 +1,29 @@
 import { DomainError, InventoryErrorCodes } from '../errors/domain_error';
 import type { CashFlow } from '../entities/cash_flow';
-import type { IpvDocument } from '../entities/ipv';
+import { IpvDocument } from '../entities/ipv';
 import type { IpvRepository } from '../repositories/ipv_repository';
 
 export class UpdateIpvCollectionsUseCase {
   constructor(private readonly ipvRepository: IpvRepository) {}
 
-  execute(id: string, cashCollected: number, transferPCollected: number, transferFCollected: number): Promise<IpvDocument> {
-    if (cashCollected < 0 || transferPCollected < 0 || transferFCollected < 0) {
-      throw new DomainError('El efectivo y las transferencias no pueden ser negativos.', InventoryErrorCodes.invalidInput);
+  async execute(id: string, transferPCollected: number, transferFCollected: number): Promise<IpvDocument> {
+    if (transferPCollected < 0 || transferFCollected < 0) {
+      throw new DomainError('Las transferencias no pueden ser negativas.', InventoryErrorCodes.invalidInput);
+    }
+    const document = await this.ipvRepository.getById(id);
+    if (!document) {
+      throw new DomainError('No encontramos ese IPV.', InventoryErrorCodes.notFound);
+    }
+    const cashCollected = IpvDocument.cashFromSale(
+      IpvDocument.saleTotal(document),
+      transferPCollected,
+      transferFCollected,
+    );
+    if (cashCollected < 0) {
+      throw new DomainError(
+        'La transferencia no puede ser mayor que la venta del día.',
+        InventoryErrorCodes.invalidInput,
+      );
     }
     return this.ipvRepository.updateCollections(id, cashCollected, transferPCollected, transferFCollected);
   }

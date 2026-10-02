@@ -18,6 +18,7 @@ export type PeriodReportProps = {
   readonly saleTotal: number;
   readonly purchaseTotal: number;
   readonly grossProfit: number;
+  readonly taxableGrossProfit: number;
   readonly expenseTotal: number;
   readonly utilidad: number;
   readonly tax: number;

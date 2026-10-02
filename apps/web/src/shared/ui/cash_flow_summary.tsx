@@ -25,6 +25,7 @@ export function CashFlowSummary({ flow, title }: CashFlowSummaryProps) {
           <p className="mt-2 text-right text-xs text-muted">
             IPV {formatMoney(flow.ipvCash)} · De Transferencia {formatMoney(flow.transferToCash)} · Compras{' '}
             {formatMoney(flow.cashPurchases)}
+            {flow.ipvSalary > 0 ? ` · Salario ${formatMoney(flow.ipvSalary)}` : ''}
             {flow.cashToTransfer > 0 ? ` · A Transferencia ${formatMoney(flow.cashToTransfer)}` : ''}
           </p>
         </article>

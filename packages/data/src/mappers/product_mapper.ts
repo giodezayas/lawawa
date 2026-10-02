@@ -13,5 +13,6 @@ export function mapProduct(row: CatalogRow): Product {
     minStock: Number(row.min_stock),
     stockQty: Number(row.stock_qty),
     isActive: row.is_active,
+    countsForTax: row.counts_for_tax !== false,
   });
 }

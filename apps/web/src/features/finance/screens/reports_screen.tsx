@@ -1,4 +1,4 @@
-import { DomainError, SalesInsight, formatDateOnly, formatMoney, shiftBillingRange } from '@wawa/domain';
+import { DomainError, SalesInsight, formatDateOnly, formatMoney, shiftCalendarMonth } from '@wawa/domain';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { ExportButtons } from '../../../shared/ui/export_buttons';
@@ -63,7 +63,7 @@ export function ReportsScreen() {
     if (!from || !to) {
       return;
     }
-    const next = shiftBillingRange(from, to, direction);
+    const next = shiftCalendarMonth(from, direction);
     setFrom(next.from);
     setTo(next.to);
   }

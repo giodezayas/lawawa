@@ -53,6 +53,7 @@ export type Database = {
           billing_start_day: number;
           billing_period_from: string;
           billing_period_to: string;
+          billing_period_live: boolean;
           updated_at: string;
         };
         Insert: {
@@ -63,6 +64,7 @@ export type Database = {
           billing_start_day?: number;
           billing_period_from?: string;
           billing_period_to?: string;
+          billing_period_live?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -72,6 +74,7 @@ export type Database = {
           billing_start_day?: number;
           billing_period_from?: string;
           billing_period_to?: string;
+          billing_period_live?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -85,6 +88,7 @@ export type Database = {
           replenishment_cost: string;
           min_stock: string;
           is_active: boolean;
+          counts_for_tax: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -95,6 +99,7 @@ export type Database = {
           replenishment_cost?: number | string;
           min_stock?: number | string;
           is_active?: boolean;
+          counts_for_tax?: boolean;
         };
         Update: {
           name?: string;
@@ -103,6 +108,7 @@ export type Database = {
           replenishment_cost?: number | string;
           min_stock?: number | string;
           is_active?: boolean;
+          counts_for_tax?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -293,6 +299,7 @@ export type Database = {
           notes: string;
           created_by: string;
           created_at: string;
+          ipv_id: string | null;
         };
         Insert: {
           category_id?: string | null;
@@ -302,6 +309,7 @@ export type Database = {
           amount: number | string;
           notes?: string;
           created_by: string;
+          ipv_id?: string | null;
         };
         Update: {
           category_id?: string | null;
@@ -310,6 +318,7 @@ export type Database = {
           cadence?: string;
           amount?: number | string;
           notes?: string;
+          ipv_id?: string | null;
         };
         Relationships: [];
       };
@@ -380,6 +389,7 @@ export type Database = {
           replenishment_cost: string;
           min_stock: string;
           is_active: boolean;
+          counts_for_tax: boolean;
           created_at: string;
           updated_at: string;
           stock_qty: string;

@@ -19,6 +19,7 @@ export function ProductDetailScreen() {
   const [replenishmentCost, setReplenishmentCost] = useState('');
   const [minStock, setMinStock] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [countsForTax, setCountsForTax] = useState(true);
   const [stockQty, setStockQty] = useState('');
   const [nameError, setNameError] = useState('');
   const [pageError, setPageError] = useState('');
@@ -39,6 +40,7 @@ export function ProductDetailScreen() {
     setReplenishmentCost(String(row.replenishmentCost));
     setMinStock(String(row.minStock));
     setIsActive(row.isActive);
+    setCountsForTax(row.countsForTax);
     setStockQty(String(row.stockQty));
   }
 
@@ -72,6 +74,7 @@ export function ProductDetailScreen() {
         replenishmentCost: toMoneyNumber(replenishmentCost),
         minStock: toMoneyNumber(minStock),
         isActive,
+        countsForTax,
       });
       setProduct(updated);
     } catch (error) {
@@ -176,6 +179,13 @@ export function ProductDetailScreen() {
         <label className="flex items-center gap-3 text-sm md:mt-8">
           <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
           Activo En El Catálogo
+        </label>
+        <label className="flex items-start gap-3 text-sm md:mt-8">
+          <input type="checkbox" checked={countsForTax} onChange={(event) => setCountsForTax(event.target.checked)} />
+          <span>
+            <span className="block">Cuenta Para Impuestos</span>
+            <span className="mt-0.5 block text-muted">Si está apagado, su ganancia no entra al 25%.</span>
+          </span>
         </label>
         <div className="md:col-span-2">
           <PrimaryButton type="submit" loading={saving}>

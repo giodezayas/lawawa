@@ -8,6 +8,7 @@ class ProductRow {
     required this.minStock,
     required this.stockQty,
     required this.isActive,
+    required this.countsForTax,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class ProductRow {
   final double minStock;
   final double stockQty;
   final bool isActive;
+  final bool countsForTax;
 
   bool get isLowStock => minStock > 0 && stockQty <= minStock;
 }
@@ -143,6 +145,102 @@ class ExpenseRow {
   final String notes;
 }
 
+class IpvDayCut {
+  const IpvDayCut({
+    required this.grossProfit,
+    required this.taxableGrossProfit,
+    required this.salary,
+    required this.otherExpenses,
+    required this.expenseTotal,
+    required this.tax,
+    required this.utilidad,
+    required this.net,
+    required this.ownerShare,
+  });
+
+  final double grossProfit;
+  final double taxableGrossProfit;
+  final double salary;
+  final double otherExpenses;
+  final double expenseTotal;
+  final double tax;
+  final double utilidad;
+  final double net;
+  final double ownerShare;
+
+  static IpvDayCut compute({
+    required double grossProfit,
+    required double taxableGrossProfit,
+    double salary = 1500,
+    double otherExpenses = 0,
+  }) {
+    final expenseTotal = _money(salary + otherExpenses);
+    final utilidad = _money(grossProfit - expenseTotal);
+    final taxBase = taxableGrossProfit - expenseTotal;
+    final tax = _money((taxBase > 0 ? taxBase : 0) * 0.25);
+    final net = _money(utilidad - tax);
+    return IpvDayCut(
+      grossProfit: _money(grossProfit),
+      taxableGrossProfit: _money(taxableGrossProfit),
+      salary: salary,
+      otherExpenses: _money(otherExpenses),
+      expenseTotal: expenseTotal,
+      tax: tax,
+      utilidad: utilidad,
+      net: net,
+      ownerShare: _money(net / 2),
+    );
+  }
+}
+
+double _money(double value) {
+  return (value * 100).round() / 100;
+}
+
+double otherExpensesOnDate(List<ExpenseRow> entries, String workDate) {
+  if (workDate.isEmpty) {
+    return 0;
+  }
+  final monthStart = DateTime.parse('${workDate.substring(0, 7)}-01T00:00:00');
+  final monthDays = DateTime(monthStart.year, monthStart.month + 1, 1).subtract(const Duration(days: 1)).day;
+  var sum = 0.0;
+  for (final entry in entries) {
+    if (entry.name == 'Salario') {
+      continue;
+    }
+    final start = entry.occurredOn.length >= 10 ? entry.occurredOn.substring(0, 10) : entry.occurredOn;
+    if (start.compareTo(workDate) > 0) {
+      continue;
+    }
+    if (entry.cadence == 'daily') {
+      sum += entry.amount;
+    } else if (entry.cadence == 'weekly') {
+      sum += entry.amount / 7;
+    } else if (entry.cadence == 'monthly') {
+      sum += entry.amount / monthDays;
+    } else if (start == workDate) {
+      sum += entry.amount;
+    }
+  }
+  return _money(sum);
+}
+
+double taxableGrossForLines(List<IpvLineRow> lines, List<ProductRow> products) {
+  var sum = 0.0;
+  for (final line in lines) {
+    var counts = true;
+    for (final product in products) {
+      if (product.id == line.productId) {
+        counts = product.countsForTax;
+      }
+    }
+    if (counts) {
+      sum += line.grossProfit;
+    }
+  }
+  return _money(sum);
+}
+
 class PeriodLine {
   const PeriodLine({
     required this.id,
@@ -166,6 +264,7 @@ class PeriodReport {
     required this.saleTotal,
     required this.purchaseTotal,
     required this.grossProfit,
+    required this.taxableGrossProfit,
     required this.expenseTotal,
     required this.utilidad,
     required this.tax,
@@ -179,6 +278,7 @@ class PeriodReport {
   final double saleTotal;
   final double purchaseTotal;
   final double grossProfit;
+  final double taxableGrossProfit;
   final double expenseTotal;
   final double utilidad;
   final double tax;
@@ -193,12 +293,28 @@ class CashFlow {
     required this.transferIn,
     required this.cashOut,
     required this.transferOut,
+    this.ipvCash = 0,
+    this.ipvTransfer = 0,
+    this.cashPurchases = 0,
+    this.transferPurchases = 0,
+    this.transferToCash = 0,
+    this.cashToTransfer = 0,
+    this.ipvSalary = 0,
+    this.firstSaleOn,
   });
 
   final double cashIn;
   final double transferIn;
   final double cashOut;
   final double transferOut;
+  final double ipvCash;
+  final double ipvTransfer;
+  final double cashPurchases;
+  final double transferPurchases;
+  final double transferToCash;
+  final double cashToTransfer;
+  final double ipvSalary;
+  final String? firstSaleOn;
 
   double get cashNet => cashIn - cashOut;
   double get transferNet => transferIn - transferOut;
@@ -360,3 +476,155 @@ class StaffRow {
   final String role;
   final bool isActive;
 }
+
+class ProductSalesRow {
+  const ProductSalesRow({
+    required this.productId,
+    required this.productName,
+    required this.soldQty,
+    required this.saleTotal,
+    required this.profit,
+    required this.marginPct,
+  });
+
+  final String productId;
+  final String productName;
+  final double soldQty;
+  final double saleTotal;
+  final double profit;
+  final double marginPct;
+}
+
+class DaySalesRow {
+  const DaySalesRow({
+    required this.workDate,
+    required this.saleTotal,
+    required this.profit,
+    required this.cashCollected,
+    required this.transferCollected,
+  });
+
+  final String workDate;
+  final double saleTotal;
+  final double profit;
+  final double cashCollected;
+  final double transferCollected;
+}
+
+class SalesInsight {
+  const SalesInsight({
+    required this.products,
+    required this.days,
+    required this.mostSold,
+    required this.leastSold,
+    required this.mostProfitProduct,
+    required this.leastProfitProduct,
+    required this.bestMargin,
+    required this.worstMargin,
+    required this.bestSaleDay,
+    required this.worstSaleDay,
+    required this.bestProfitDay,
+    required this.worstProfitDay,
+    required this.mostTransferDay,
+    required this.leastTransferDay,
+  });
+
+  final List<ProductSalesRow> products;
+  final List<DaySalesRow> days;
+  final ProductSalesRow? mostSold;
+  final ProductSalesRow? leastSold;
+  final ProductSalesRow? mostProfitProduct;
+  final ProductSalesRow? leastProfitProduct;
+  final ProductSalesRow? bestMargin;
+  final ProductSalesRow? worstMargin;
+  final DaySalesRow? bestSaleDay;
+  final DaySalesRow? worstSaleDay;
+  final DaySalesRow? bestProfitDay;
+  final DaySalesRow? worstProfitDay;
+  final DaySalesRow? mostTransferDay;
+  final DaySalesRow? leastTransferDay;
+
+  static double _round2(double value) => (value * 100).round() / 100;
+
+  static ProductSalesRow? _pickProduct(List<ProductSalesRow> rows, double Function(ProductSalesRow) key, bool max) {
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.reduce((best, row) {
+      final left = key(row);
+      final right = key(best);
+      if (max) {
+        return left > right ? row : best;
+      }
+      return left < right ? row : best;
+    });
+  }
+
+  static DaySalesRow? _pickDay(List<DaySalesRow> rows, double Function(DaySalesRow) key, bool max) {
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.reduce((best, row) {
+      final left = key(row);
+      final right = key(best);
+      if (max) {
+        return left > right ? row : best;
+      }
+      return left < right ? row : best;
+    });
+  }
+
+  static SalesInsight fromIpvs(List<IpvDoc> documents, String from, String to) {
+    final inRange = documents
+        .where((doc) => doc.workDate.compareTo(from) >= 0 && doc.workDate.compareTo(to) <= 0 && doc.lines.isNotEmpty)
+        .toList();
+    final byProduct = <String, ProductSalesRow>{};
+    for (final document in inRange) {
+      for (final line in document.lines) {
+        final current = byProduct[line.productId];
+        final soldQty = (current?.soldQty ?? 0) + line.soldQty;
+        final saleTotal = _round2((current?.saleTotal ?? 0) + line.saleTotal);
+        final profit = _round2((current?.profit ?? 0) + line.grossProfit);
+        byProduct[line.productId] = ProductSalesRow(
+          productId: line.productId,
+          productName: line.productName,
+          soldQty: soldQty,
+          saleTotal: saleTotal,
+          profit: profit,
+          marginPct: saleTotal > 0 ? _round2((profit / saleTotal) * 100) : 0,
+        );
+      }
+    }
+    final products = byProduct.values.toList()..sort((a, b) => b.soldQty.compareTo(a.soldQty));
+    final withSales = products.where((row) => row.saleTotal > 0).toList();
+    final days = inRange
+        .map(
+          (document) => DaySalesRow(
+            workDate: document.workDate,
+            saleTotal: _round2(document.saleTotal),
+            profit: _round2(document.grossProfit),
+            cashCollected: document.cashCollected,
+            transferCollected: document.transferCollected,
+          ),
+        )
+        .toList()
+      ..sort((a, b) => a.workDate.compareTo(b.workDate));
+    return SalesInsight(
+      products: products,
+      days: days,
+      mostSold: _pickProduct(products, (row) => row.soldQty, true),
+      leastSold: _pickProduct(products, (row) => row.soldQty, false),
+      mostProfitProduct: _pickProduct(withSales, (row) => row.profit, true),
+      leastProfitProduct: _pickProduct(withSales, (row) => row.profit, false),
+      bestMargin: _pickProduct(withSales, (row) => row.marginPct, true),
+      worstMargin: _pickProduct(withSales, (row) => row.marginPct, false),
+      bestSaleDay: _pickDay(days, (row) => row.saleTotal, true),
+      worstSaleDay: _pickDay(days, (row) => row.saleTotal, false),
+      bestProfitDay: _pickDay(days, (row) => row.profit, true),
+      worstProfitDay: _pickDay(days, (row) => row.profit, false),
+      mostTransferDay: _pickDay(days, (row) => row.transferCollected, true),
+      leastTransferDay: _pickDay(days, (row) => row.transferCollected, false),
+    );
+  }
+}
+

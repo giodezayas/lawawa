@@ -124,17 +124,6 @@ export class IpvRepositoryImpl implements IpvRepository {
   }
 
   async upsertLine(input: UpsertIpvLineInput): Promise<IpvLine> {
-    const { data: existing, error: existingError } = await this.client
-      .from('ipv_lines')
-      .select('id')
-      .eq('ipv_id', input.ipvId)
-      .eq('product_id', input.productId)
-      .maybeSingle();
-
-    if (existingError) {
-      throw new DomainError(existingError.message, InventoryErrorCodes.invalidInput);
-    }
-
     const payload = {
       opening_qty: input.openingQty,
       inbound_qty: input.inboundQty,
@@ -146,8 +135,23 @@ export class IpvRepositoryImpl implements IpvRepository {
       sort_order: input.sortOrder,
     };
 
-    const query = existing
-      ? this.client.from('ipv_lines').update(payload).eq('id', existing.id)
+    let lineId = input.id;
+    if (!lineId) {
+      const { data: existing, error: existingError } = await this.client
+        .from('ipv_lines')
+        .select('id')
+        .eq('ipv_id', input.ipvId)
+        .eq('product_id', input.productId)
+        .maybeSingle();
+
+      if (existingError) {
+        throw new DomainError(existingError.message, InventoryErrorCodes.invalidInput);
+      }
+      lineId = existing?.id;
+    }
+
+    const query = lineId
+      ? this.client.from('ipv_lines').update(payload).eq('id', lineId)
       : this.client.from('ipv_lines').insert({
           ipv_id: input.ipvId,
           product_id: input.productId,

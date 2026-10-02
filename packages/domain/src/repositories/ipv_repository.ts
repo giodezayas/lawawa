@@ -7,6 +7,7 @@ export type CreateIpvInput = {
 };
 
 export type UpsertIpvLineInput = {
+  id?: string;
   ipvId: string;
   productId: string;
   productName: string;

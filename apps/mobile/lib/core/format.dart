@@ -13,6 +13,10 @@ String formatDateOnly(String iso) {
   return '${iso.substring(8, 10)}/${iso.substring(5, 7)}/${iso.substring(0, 4)}';
 }
 
+String formatPct(num value) {
+  return '${value.toStringAsFixed(1)} %';
+}
+
 String formatMoney(num value) {
   final amount = value.isFinite ? value.toDouble() : 0.0;
   final parts = amount.abs().toStringAsFixed(2).split('.');
@@ -33,6 +37,8 @@ double parseMoney(String value) {
   return double.tryParse(value.trim()) ?? 0;
 }
 
+const ipvDailySalary = 1500.0;
+
 double asNum(dynamic value) {
   if (value == null) {
     return 0;
@@ -44,7 +50,42 @@ double asNum(dynamic value) {
 }
 
 ({String from, String to}) defaultBillingPeriod() {
-  return (from: '2026-08-31', to: isoDate());
+  final today = isoDate();
+  return (from: startOfMonth(today), to: today);
+}
+
+String startOfMonth([String? iso]) {
+  final value = iso ?? isoDate();
+  return '${value.substring(0, 7)}-01';
+}
+
+String endOfMonth([String? iso]) {
+  final value = iso ?? isoDate();
+  final first = DateTime.parse('${startOfMonth(value)}T00:00:00');
+  final nextMonth = DateTime(first.year, first.month + 1, 1);
+  final last = nextMonth.subtract(const Duration(days: 1));
+  return isoDate(last);
+}
+
+({String from, String to}) shiftCalendarMonth(String from, int direction) {
+  final first = DateTime.parse('${from.substring(0, 7)}-01T00:00:00');
+  final shifted = DateTime(first.year, first.month + direction, 1);
+  final start = isoDate(shifted);
+  final end = endOfMonth(start);
+  final today = isoDate();
+  if (start.compareTo(today) <= 0 && today.compareTo(end) <= 0) {
+    return (from: start, to: today);
+  }
+  return (from: start, to: end);
+}
+
+({String from, String to}) previousCalendarMonth() {
+  return shiftCalendarMonth(startOfMonth(), -1);
+}
+
+bool isLiveCurrentMonth(String from, String to) {
+  final live = defaultBillingPeriod();
+  return from == live.from && to == live.to;
 }
 
 ({String from, String to}) shiftBillingRange(String from, String to, int direction) {

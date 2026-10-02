@@ -6,6 +6,7 @@ export class UpsertIpvLineUseCase {
   constructor(private readonly ipvRepository: IpvRepository) {}
 
   execute(input: {
+    id?: string;
     ipvId: string;
     productId: string;
     productName: string;

@@ -1,4 +1,4 @@
-import { addDays, todayIsoDate } from './date';
+import { addDays, endOfMonth, startOfMonth, todayIsoDate } from './date';
 
 export type BillingPeriodBounds = { from: string; to: string };
 
@@ -9,7 +9,31 @@ export function isBillingRange(from: string, to: string): boolean {
 }
 
 export function defaultBillingPeriod(): BillingPeriodBounds {
-  return { from: '2026-08-31', to: todayIsoDate() };
+  const today = todayIsoDate();
+  return { from: startOfMonth(today), to: today };
+}
+
+export function isLiveCurrentMonth(from: string, to: string): boolean {
+  const live = defaultBillingPeriod();
+  return from === live.from && to === live.to;
+}
+
+export function shiftCalendarMonth(from: string, direction: number): BillingPeriodBounds {
+  const date = new Date(`${from.slice(0, 7)}-01T00:00:00`);
+  date.setMonth(date.getMonth() + direction);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const start = `${year}-${month}-01`;
+  const end = endOfMonth(start);
+  const today = todayIsoDate();
+  if (start <= today && today <= end) {
+    return { from: start, to: today };
+  }
+  return { from: start, to: end };
+}
+
+export function previousCalendarMonth(): BillingPeriodBounds {
+  return shiftCalendarMonth(startOfMonth(), -1);
 }
 
 export function shiftBillingRange(from: string, to: string, direction: number): BillingPeriodBounds {

@@ -4,7 +4,7 @@ import {
   DomainError,
   formatDateOnly,
   formatMoney,
-  shiftBillingRange,
+  shiftCalendarMonth,
   todayIsoDate,
   toMoneyNumber,
   type CardOpening,
@@ -133,7 +133,7 @@ export function CardsScreen() {
     if (!from || !to) {
       return;
     }
-    const next = shiftBillingRange(from, to, direction);
+    const next = shiftCalendarMonth(from, direction);
     void load(next.from, next.to);
   }
 

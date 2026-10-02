@@ -4,6 +4,8 @@ export type IpvShift = (typeof ipvShifts)[number];
 export const ipvStatuses = ['open', 'closed'] as const;
 export type IpvStatus = (typeof ipvStatuses)[number];
 
+export const IPV_DAILY_SALARY = 1500;
+
 export type IpvLineProps = {
   readonly id: string;
   readonly ipvId: string;
@@ -85,6 +87,18 @@ export const IpvDocument = {
 
   transferTotal(document: IpvDocument): number {
     return document.transferPCollected + document.transferFCollected;
+  },
+
+  cashFromSale(saleTotal: number, transferPCollected: number, transferFCollected: number): number {
+    return roundMoney(saleTotal - transferPCollected - transferFCollected);
+  },
+
+  profitAfterSalary(document: IpvDocument): number {
+    return roundMoney(IpvDocument.grossProfit(document) - IPV_DAILY_SALARY);
+  },
+
+  cashAfterSalary(cashCollected: number): number {
+    return roundMoney(cashCollected - IPV_DAILY_SALARY);
   },
 
   saleTotal(document: IpvDocument): number {

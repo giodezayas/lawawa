@@ -19,6 +19,7 @@ export function ProductsScreen() {
   const [purchasePrice, setPurchasePrice] = useState('');
   const [replenishmentCost, setReplenishmentCost] = useState('');
   const [minStock, setMinStock] = useState('');
+  const [countsForTax, setCountsForTax] = useState(true);
   const [nameError, setNameError] = useState('');
   const [pageError, setPageError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -88,12 +89,14 @@ export function ProductsScreen() {
         purchasePrice: toMoneyNumber(purchasePrice),
         replenishmentCost: toMoneyNumber(replenishmentCost),
         minStock: toMoneyNumber(minStock),
+        countsForTax,
       });
       setName('');
       setSalePrice('');
       setPurchasePrice('');
       setReplenishmentCost('');
       setMinStock('');
+      setCountsForTax(true);
       await load();
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el producto.');
@@ -167,6 +170,10 @@ export function ProductsScreen() {
           value={minStock}
           onChange={(event) => setMinStock(event.target.value)}
         />
+        <label className="flex items-center gap-3 text-sm lg:mb-3">
+          <input type="checkbox" checked={countsForTax} onChange={(event) => setCountsForTax(event.target.checked)} />
+          Cuenta Para Impuestos
+        </label>
         <PrimaryButton type="submit" loading={loading} className="w-full">
           Agregar Producto
         </PrimaryButton>
@@ -185,13 +192,14 @@ export function ProductsScreen() {
       <ExportButtons
         title="Productos"
         fileName="productos"
-        columns={['Producto', 'Precio De Venta', 'Última Compra', 'Costo De Reposición', 'Stock', 'Alerta']}
+        columns={['Producto', 'Precio De Venta', 'Última Compra', 'Costo De Reposición', 'Stock', 'Impuesto', 'Alerta']}
         rows={sorted.map((product) => [
           product.name,
           formatMoney(product.salePrice),
           product.lastPurchasePrice === null ? '' : formatMoney(product.lastPurchasePrice),
           formatMoney(product.replenishmentCost),
           String(product.stockQty),
+          product.countsForTax ? 'Sí' : 'No',
           Product.isLowStock(product) ? 'Bajo Stock' : 'Ok',
         ])}
         disabled={listLoading || sorted.length === 0}
@@ -225,16 +233,17 @@ export function ProductsScreen() {
                   Stock
                 </button>
               </th>
+              <th className="hidden px-4 py-3 font-semibold md:table-cell">Impuesto</th>
               <th className="hidden px-4 py-3 font-semibold md:table-cell">Alerta</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {listLoading ? (
-              <TableSpinner colSpan={7} label="Cargando Productos..." />
+              <TableSpinner colSpan={8} label="Cargando Productos..." />
             ) : sorted.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted">
                   {products.length === 0
                     ? 'Todavía no hay productos. Agrega el primero y luego cárgale una compra.'
                     : 'No hay productos con ese nombre.'}
@@ -254,6 +263,7 @@ export function ProductsScreen() {
                   </td>
                   <td className="hidden px-4 py-3 text-right md:table-cell">{formatMoney(product.replenishmentCost)}</td>
                   <td className="px-4 py-3 text-right">{product.stockQty}</td>
+                  <td className="hidden px-4 py-3 md:table-cell">{product.countsForTax ? 'Sí' : 'No'}</td>
                   <td className="hidden px-4 py-3 md:table-cell">
                     {Product.isLowStock(product) ? (
                       <span className="font-semibold text-danger">Bajo Stock</span>

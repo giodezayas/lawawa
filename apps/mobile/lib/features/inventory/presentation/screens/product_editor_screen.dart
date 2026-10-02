@@ -26,6 +26,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   final _adjust = TextEditingController();
   List<StockMove> _moves = [];
   var _active = true;
+  var _countsForTax = true;
   var _stock = 0.0;
   var _error = '';
   var _loading = false;
@@ -65,6 +66,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       _cost.text = product.replenishmentCost.toString();
       _min.text = product.minStock.toString();
       _active = product.isActive;
+      _countsForTax = product.countsForTax;
       _stock = product.stockQty;
       _moves = moves;
     });
@@ -88,6 +90,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           purchasePrice: parseMoney(_purchase.text),
           replenishmentCost: parseMoney(_cost.text),
           minStock: parseMoney(_min.text),
+          countsForTax: _countsForTax,
         );
         if (mounted) {
           Navigator.pop(context);
@@ -102,6 +105,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         replenishmentCost: parseMoney(_cost.text),
         minStock: parseMoney(_min.text),
         isActive: _active,
+        countsForTax: _countsForTax,
       );
       await _load(widget.productId!);
     } catch (error) {
@@ -126,6 +130,13 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           LabeledField(label: 'Último Precio De Compra', controller: _purchase, keyboardType: TextInputType.number),
           LabeledField(label: 'Costo De Reposición', controller: _cost, keyboardType: TextInputType.number),
           LabeledField(label: 'Stock Mínimo', controller: _min, keyboardType: TextInputType.number),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Cuenta Para Impuestos'),
+            subtitle: const Text('Si está apagado, su ganancia no entra al 25%.'),
+            value: _countsForTax,
+            onChanged: (value) => setState(() => _countsForTax = value),
+          ),
           if (!_create) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

@@ -3,11 +3,16 @@ import {
   IpvDocument,
   IpvLine,
   User,
+  IPV_DAILY_SALARY,
+  ipvDayCut,
+  otherExpensesOnDate,
+  taxableGrossProfit,
   formatDateOnly,
   formatMoney,
   todayIsoDate,
   toMoneyNumber,
   type Product,
+  type ExpenseEntry,
 } from '@wawa/domain';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -101,10 +106,10 @@ export function IpvEditorScreen() {
   const { container, user } = useAuth();
   const confirm = useConfirm();
   const [products, setProducts] = useState<Product[]>([]);
+  const [dayExpenses, setDayExpenses] = useState<ExpenseEntry[]>([]);
   const [document, setDocument] = useState<IpvDocument | null>(null);
   const [workDate, setWorkDate] = useState(todayIsoDate());
   const [draft, setDraft] = useState<DraftLine>(emptyDraft);
-  const [cashCollected, setCashCollected] = useState('');
   const [transferPCollected, setTransferPCollected] = useState('');
   const [transferFCollected, setTransferFCollected] = useState('');
   const [savingCollections, setSavingCollections] = useState(false);
@@ -115,6 +120,9 @@ export function IpvEditorScreen() {
   const [deleting, setDeleting] = useState(false);
   const [lineDrafts, setLineDrafts] = useState<Record<string, LineEdit>>({});
   const [savingLineId, setSavingLineId] = useState('');
+  const [deletingLineId, setDeletingLineId] = useState('');
+  const [addingLine, setAddingLine] = useState(false);
+  const [lineNotice, setLineNotice] = useState('');
 
   const canEditClosed = user ? User.canManageStaff(user) : false;
   const locked = document ? !IpvDocument.isOpen(document) && !canEditClosed : false;
@@ -122,14 +130,47 @@ export function IpvEditorScreen() {
 
   function applyDocument(next: IpvDocument) {
     setDocument(next);
-    setCashCollected(String(next.cashCollected));
     setTransferPCollected(String(next.transferPCollected));
     setTransferFCollected(String(next.transferFCollected));
     setLineDrafts(Object.fromEntries(next.lines.map((line) => [line.id, lineEditFrom(line)])));
   }
 
+  function showLineNotice(message: string) {
+    setLineNotice(message);
+    window.setTimeout(() => setLineNotice(''), 2000);
+  }
+
+  function patchSavedLine(saved: IpvLine) {
+    setDocument((current) => {
+      if (!current) {
+        return current;
+      }
+      const exists = current.lines.some((line) => line.id === saved.id);
+      const lines = exists
+        ? current.lines.map((line) => (line.id === saved.id ? saved : line))
+        : [...current.lines, saved];
+      return IpvDocument.create({ ...current, lines });
+    });
+    setLineDrafts((current) => ({ ...current, [saved.id]: lineEditFrom(saved) }));
+  }
+
+  function dropLine(lineId: string) {
+    setDocument((current) => {
+      if (!current) {
+        return current;
+      }
+      return IpvDocument.create({ ...current, lines: current.lines.filter((line) => line.id !== lineId) });
+    });
+    setLineDrafts((current) => {
+      const next = { ...current };
+      delete next[lineId];
+      return next;
+    });
+  }
+
   useEffect(() => {
     void container.listProducts.execute().then(setProducts);
+    void container.listExpenseEntries.execute().then(setDayExpenses);
   }, [container]);
 
   useEffect(() => {
@@ -156,6 +197,22 @@ export function IpvEditorScreen() {
       cost: saleTotal - profit,
     };
   }, [document]);
+
+  const cashCollected = IpvDocument.cashFromSale(
+    totals.saleTotal,
+    toMoneyNumber(transferPCollected),
+    toMoneyNumber(transferFCollected),
+  );
+
+  const dayCut = useMemo(
+    () =>
+      ipvDayCut({
+        grossProfit: totals.profit,
+        taxableGrossProfit: taxableGrossProfit(document?.lines ?? [], products),
+        otherExpenses: otherExpensesOnDate(dayExpenses, document?.workDate ?? ''),
+      }),
+    [totals.profit, document, products, dayExpenses],
+  );
 
   const preview = IpvLine.compute({
     openingQty: toQty(draft.openingQty),
@@ -187,13 +244,15 @@ export function IpvEditorScreen() {
   }
 
   function selectProduct(product: Product) {
+    const fromSack = product.name === 'Azúcar Por Libras';
     setDraft((current) => ({
       ...current,
       productId: product.id,
       productName: product.name,
-      openingQty: current.openingQty || String(product.stockQty),
+      openingQty: current.openingQty || String(fromSack ? 0 : product.stockQty),
       salePrice: current.salePrice || String(product.salePrice),
       replenishmentCost: current.replenishmentCost || String(product.replenishmentCost),
+      inboundAddsStock: fromSack ? false : current.inboundAddsStock,
     }));
   }
 
@@ -207,9 +266,9 @@ export function IpvEditorScreen() {
       setLineError('Elige un producto del catálogo.');
       return;
     }
-
+    setAddingLine(true);
     try {
-      await container.upsertIpvLine.execute({
+      const saved = await container.upsertIpvLine.execute({
         ipvId: document.id,
         productId: draft.productId,
         productName: draft.productName,
@@ -222,11 +281,13 @@ export function IpvEditorScreen() {
         inboundAddsStock: draft.inboundAddsStock,
         sortOrder: document.lines.length,
       });
-      const next = await container.getIpv.execute(document.id);
-      applyDocument(next);
+      patchSavedLine(saved);
       setDraft(emptyDraft);
+      showLineNotice('Producto agregado.');
     } catch (error) {
       setLineError(error instanceof DomainError ? error.message : 'No se pudo agregar la línea.');
+    } finally {
+      setAddingLine(false);
     }
   }
 
@@ -237,8 +298,17 @@ export function IpvEditorScreen() {
     if (!(await confirm({ message: '¿Quitar este producto del IPV?' }))) {
       return;
     }
-    await container.removeIpvLine.execute(lineId);
-    applyDocument(await container.getIpv.execute(document.id));
+    setPageError('');
+    setDeletingLineId(lineId);
+    try {
+      await container.removeIpvLine.execute(lineId);
+      dropLine(lineId);
+      showLineNotice('Producto quitado.');
+    } catch (error) {
+      setPageError(error instanceof DomainError ? error.message : 'No se pudo quitar el producto.');
+    } finally {
+      setDeletingLineId('');
+    }
   }
 
   async function saveExistingLine(line: IpvLine) {
@@ -249,7 +319,8 @@ export function IpvEditorScreen() {
     setPageError('');
     setSavingLineId(line.id);
     try {
-      await container.upsertIpvLine.execute({
+      const saved = await container.upsertIpvLine.execute({
+        id: line.id,
         ipvId: document.id,
         productId: line.productId,
         productName: line.productName,
@@ -262,12 +333,21 @@ export function IpvEditorScreen() {
         inboundAddsStock: edit.inboundAddsStock,
         sortOrder: line.sortOrder,
       });
-      applyDocument(await container.getIpv.execute(document.id));
+      patchSavedLine(saved);
+      showLineNotice('Producto guardado.');
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el producto.');
     } finally {
       setSavingLineId('');
     }
+  }
+
+  async function persistTransfers(ipvId: string) {
+    return container.updateIpvCollections.execute(
+      ipvId,
+      toMoneyNumber(transferPCollected),
+      toMoneyNumber(transferFCollected),
+    );
   }
 
   async function saveCollections() {
@@ -277,13 +357,7 @@ export function IpvEditorScreen() {
     setPageError('');
     setSavingCollections(true);
     try {
-      const next = await container.updateIpvCollections.execute(
-        document.id,
-        toMoneyNumber(cashCollected),
-        toMoneyNumber(transferPCollected),
-        toMoneyNumber(transferFCollected),
-      );
-      applyDocument(next);
+      applyDocument(await persistTransfers(document.id));
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar la caja.');
     } finally {
@@ -298,14 +372,10 @@ export function IpvEditorScreen() {
     setPageError('');
     setClosing(true);
     try {
-      await container.updateIpvCollections.execute(
-        document.id,
-        toMoneyNumber(cashCollected),
-        toMoneyNumber(transferPCollected),
-        toMoneyNumber(transferFCollected),
-      );
+      await persistTransfers(document.id);
       const closed = await container.closeIpv.execute(document.id, user.id);
       applyDocument(closed);
+      setDayExpenses(await container.listExpenseEntries.execute());
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudo cerrar el IPV.');
     } finally {
@@ -379,9 +449,9 @@ export function IpvEditorScreen() {
               'Entradas',
               'Salidas',
               'Vendidos',
+              'Stock Final',
               'P. Venta',
               'Costo',
-              'Stock Final',
               'Total Venta',
               'Ganancia Bruta',
             ]}
@@ -391,9 +461,9 @@ export function IpvEditorScreen() {
               String(line.inboundQty),
               String(line.outboundQty),
               String(line.soldQty),
+              String(line.closingQty),
               formatMoney(line.salePrice),
               formatMoney(line.replenishmentCost),
-              String(line.closingQty),
               formatMoney(line.saleTotal),
               formatMoney(line.grossProfit),
             ])}
@@ -405,6 +475,7 @@ export function IpvEditorScreen() {
         </div>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
+      {lineNotice ? <p className="text-sm text-primary">{lineNotice}</p> : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-3xl border border-line bg-white px-5 py-4">
@@ -428,6 +499,45 @@ export function IpvEditorScreen() {
         </article>
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-primary">Si Cobramos Hoy</h2>
+        <p className="text-sm text-muted">
+          Salario, la parte del día de los gastos (también los mensuales) e impuesto a reservar. Lo que queda se
+          parte a la mitad entre los dos dueños.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <article className="rounded-3xl border border-line bg-white px-5 py-4">
+            <p className="text-sm font-medium text-primary">Salario</p>
+            <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(dayCut.salary)}</p>
+            <p className="mt-1 text-right text-xs text-muted">Se saca de la venta al cerrar</p>
+          </article>
+          <article className="rounded-3xl border border-line bg-white px-5 py-4">
+            <p className="text-sm font-medium text-primary">Gastos A Reservar</p>
+            <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(dayCut.otherExpenses)}</p>
+            <p className="mt-1 text-right text-xs text-muted">Hoy, Semanales Y Mensuales Prorrateados</p>
+          </article>
+          <article className="rounded-3xl border border-line bg-white px-5 py-4">
+            <p className="text-sm font-medium text-primary">Impuesto A Reservar</p>
+            <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(dayCut.tax)}</p>
+            <p className="mt-1 text-right text-xs text-muted">25% De Lo Que Tributa, Menos Gastos</p>
+          </article>
+          <article className="rounded-3xl border border-line bg-white px-5 py-4">
+            <p className="text-sm font-medium text-primary">Neta Del Día</p>
+            <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(dayCut.net)}`}>
+              {formatMoney(dayCut.net)}
+            </p>
+            <p className="mt-1 text-right text-xs text-muted">Ganancia Menos Salario, Gastos E Impuesto</p>
+          </article>
+          <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
+            <p className="text-sm font-medium text-primary">Cada Dueño</p>
+            <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(dayCut.ownerShare)}`}>
+              {formatMoney(dayCut.ownerShare)}
+            </p>
+            <p className="mt-1 text-right text-xs text-muted">Mitad De La Neta</p>
+          </article>
+        </div>
+      </section>
+
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -442,14 +552,13 @@ export function IpvEditorScreen() {
           </Link>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <TextField
-            id="cash-collected"
-            label="Efectivo"
-            inputMode="decimal"
-            value={cashCollected}
-            disabled={locked}
-            onChange={(event) => setCashCollected(event.target.value)}
-          />
+          <div className="rounded-3xl border border-line bg-cream-dark px-4 py-3">
+            <p className="text-sm font-medium text-ink">Efectivo</p>
+            <p className={`mt-1 text-right text-xl font-extrabold ${moneyTone(cashCollected)}`}>
+              {formatMoney(cashCollected)}
+            </p>
+            <p className="mt-1 text-right text-xs text-muted">Venta Menos Tarjetas</p>
+          </div>
           <div className="rounded-3xl border-2 border-accent bg-white p-3">
             <TextField
               id="transfer-p-collected"
@@ -472,26 +581,12 @@ export function IpvEditorScreen() {
           </div>
         </div>
         <p className="text-sm text-muted">
-          Venta {formatMoney(totals.saleTotal)} · Recaudado{' '}
-          {formatMoney(
-            toMoneyNumber(cashCollected) + toMoneyNumber(transferPCollected) + toMoneyNumber(transferFCollected),
-          )}{' '}
-          · Diferencia{' '}
-          <span
-            className={moneyTone(
-              toMoneyNumber(cashCollected) +
-                toMoneyNumber(transferPCollected) +
-                toMoneyNumber(transferFCollected) -
-                totals.saleTotal,
-            )}
-          >
-            {formatMoney(
-              toMoneyNumber(cashCollected) +
-                toMoneyNumber(transferPCollected) +
-                toMoneyNumber(transferFCollected) -
-                totals.saleTotal,
-            )}
-          </span>
+          Venta {formatMoney(totals.saleTotal)} · Recaudado {formatMoney(cashCollected + toMoneyNumber(transferPCollected) + toMoneyNumber(transferFCollected))}
+          {' · '}
+          Efectivo Luego Del Salario {formatMoney(cashCollected - IPV_DAILY_SALARY)}
+          {cashCollected < 0 ? (
+            <span className="text-danger"> · La transferencia supera la venta</span>
+          ) : null}
         </p>
         {locked ? null : (
           <PrimaryButton type="submit" loading={savingCollections}>
@@ -563,7 +658,7 @@ export function IpvEditorScreen() {
             <span>
               <span className="font-medium">Suma Al Inventario</span>
               <span className="mt-0.5 block text-muted">
-                Márcalo si embolsas acá. Al cerrar el IPV se descuenta del saco (1 lb o 2.2 lb por kg).
+                Márcalo si embolsas Azúcar 1 lb o 1 kg. Al cerrar se descuenta del saco. Azúcar Por Libras se rebaja con Vendidos.
               </span>
             </span>
           </label>
@@ -571,8 +666,15 @@ export function IpvEditorScreen() {
             Stock Final {preview.closingQty} · Total Venta {formatMoney(preview.saleTotal)} · Ganancia
             Bruta <span className={moneyTone(preview.grossProfit)}>{formatMoney(preview.grossProfit)}</span>
           </p>
+          {draft.productName === 'Azúcar Por Libras' ? (
+            <p className="text-sm text-muted">
+              Pon en Vendidos las libras del día. Al cerrar el IPV se rebajan del saco.
+            </p>
+          ) : null}
           {lineError ? <p className="text-sm text-danger">{lineError}</p> : null}
-          <PrimaryButton type="submit">Agregar Producto Al IPV</PrimaryButton>
+          <PrimaryButton type="submit" loading={addingLine} loadingLabel="Agregando...">
+            Agregar Producto Al IPV
+          </PrimaryButton>
         </form>
       )}
 
@@ -590,9 +692,9 @@ export function IpvEditorScreen() {
                 <th className="w-[7%] px-1 py-2 text-right font-semibold">Entradas</th>
                 <th className="w-[7%] px-1 py-2 text-right font-semibold">Salidas</th>
                 <th className="w-[7%] px-1 py-2 text-right font-semibold">Vendidos</th>
+                <th className="w-[7%] px-1 py-2 text-right font-semibold">Final</th>
                 <th className="w-[8%] px-1 py-2 text-right font-semibold">P. Venta</th>
                 <th className="w-[8%] px-1 py-2 text-right font-semibold">Costo</th>
-                <th className="w-[7%] px-1 py-2 text-right font-semibold">Final</th>
                 <th className="w-[8%] px-1 py-2 text-right font-semibold">Venta</th>
                 <th className="w-[8%] px-1 py-2 text-right font-semibold">Ganancia</th>
                 <th className="w-[5%] px-1 py-2 text-center font-semibold">Suma</th>
@@ -610,6 +712,9 @@ export function IpvEditorScreen() {
                       <Link to={`/inventario/productos/${line.productId}`} className="block truncate font-semibold text-primary">
                         {line.productName}
                       </Link>
+                      {line.productName === 'Azúcar Por Libras' ? (
+                        <span className="block text-[10px] text-muted">Vendidos = lb del saco</span>
+                      ) : null}
                     </td>
                     <td className="px-1 py-1">
                       <QtyInput value={edit.openingQty} disabled={locked} onChange={(value) => patch({ openingQty: value })} />
@@ -627,6 +732,7 @@ export function IpvEditorScreen() {
                     <td className="px-1 py-1">
                       <QtyInput value={edit.soldQty} disabled={locked} onChange={(value) => patch({ soldQty: value })} />
                     </td>
+                    <td className="truncate px-1 py-1 text-right">{line.closingQty}</td>
                     <td className="px-1 py-1">
                       <QtyInput
                         value={edit.salePrice}
@@ -643,7 +749,6 @@ export function IpvEditorScreen() {
                         onChange={(value) => patch({ replenishmentCost: value })}
                       />
                     </td>
-                    <td className="truncate px-1 py-1 text-right">{line.closingQty}</td>
                     <td className="truncate px-1 py-1 text-right">{formatMoney(line.saleTotal)}</td>
                     <td className={`truncate px-1 py-1 text-right ${moneyTone(line.grossProfit)}`}>
                       {formatMoney(line.grossProfit)}
@@ -666,13 +771,18 @@ export function IpvEditorScreen() {
                           <button
                             type="button"
                             className="font-semibold text-primary"
-                            disabled={savingLineId === line.id}
+                            disabled={savingLineId === line.id || deletingLineId === line.id}
                             onClick={() => void saveExistingLine(line)}
                           >
-                            {savingLineId === line.id ? '...' : 'Guardar'}
+                            {savingLineId === line.id ? 'Guardando...' : 'Guardar'}
                           </button>
-                          <button type="button" className="text-danger" onClick={() => void removeLine(line.id)}>
-                            Quitar
+                          <button
+                            type="button"
+                            className="text-danger"
+                            disabled={savingLineId === line.id || deletingLineId === line.id}
+                            onClick={() => void removeLine(line.id)}
+                          >
+                            {deletingLineId === line.id ? 'Borrando...' : 'Quitar'}
                           </button>
                         </div>
                       )}
@@ -704,6 +814,9 @@ export function IpvEditorScreen() {
           <PrimaryButton type="button" loading={closing} loadingLabel="Cerrando..." onClick={() => void closeIpv()}>
             Cerrar IPV
           </PrimaryButton>
+        )}
+        {isClosed ? null : (
+          <p className="text-sm text-muted">Al cerrar se registra el salario de {formatMoney(IPV_DAILY_SALARY)} como gasto del día.</p>
         )}
         <button type="button" className="text-sm text-danger" disabled={deleting} onClick={() => void deleteIpv()}>
           {deleting ? 'Borrando...' : 'Borrar IPV'}

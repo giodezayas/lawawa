@@ -49,6 +49,7 @@ export type ProductProps = {
   readonly minStock: number;
   readonly stockQty: number;
   readonly isActive: boolean;
+  readonly countsForTax: boolean;
 };
 
 export type Product = Readonly<ProductProps>;
