@@ -7,7 +7,6 @@ import {
   formatDateOnly,
   formatMoney,
   shiftCalendarMonth,
-  todayIsoDate,
 } from '@wawa/domain';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -20,8 +19,8 @@ import { ExportButtons } from '../../../shared/ui/export_buttons';
 export function ResultsScreen() {
   const { container, user } = useAuth();
   const confirm = useConfirm();
-  const [from, setFrom] = useState(todayIsoDate());
-  const [to, setTo] = useState(todayIsoDate());
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [report, setReport] = useState<PeriodReport | null>(null);
   const [pageError, setPageError] = useState('');
   const [closing, setClosing] = useState(false);
@@ -46,9 +45,26 @@ export function ResultsScreen() {
   }, [container]);
 
   useEffect(() => {
-    void load(from, to).catch((error) => {
-      setPageError(error instanceof DomainError ? error.message : 'No se pudo armar el corte.');
-    });
+    if (!from || !to) {
+      return;
+    }
+    let cancelled = false;
+    void container.getPeriodReport
+      .execute(from, to)
+      .then((next) => {
+        if (!cancelled) {
+          setReport(next);
+        }
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setPageError(error instanceof DomainError ? error.message : 'No se pudo armar el corte.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [container, from, to]);
 
   async function closePeriod() {
@@ -74,6 +90,9 @@ export function ResultsScreen() {
   }
 
   function shift(direction: number) {
+    if (!from || !to) {
+      return;
+    }
     const next = shiftCalendarMonth(from, direction);
     setFrom(next.from);
     setTo(next.to);
@@ -97,7 +116,6 @@ export function ResultsScreen() {
               rows={[
                 ['Venta', formatMoney(report.saleTotal)],
                 ['Invertido', formatMoney(report.purchaseTotal)],
-                ['Venta Vs Invertido', formatMoney(PeriodReport.vsInvested(report))],
                 [`Ganancia Bruta`, formatMoney(report.grossProfit)],
                 ['Ganancia Que Tributa', formatMoney(report.taxableGrossProfit)],
                 ['Gastos', formatMoney(report.expenseTotal)],
@@ -146,7 +164,7 @@ export function ResultsScreen() {
         <>
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-primary">Ventas</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Venta</p>
                 <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(report.saleTotal)}</p>
@@ -154,12 +172,6 @@ export function ResultsScreen() {
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Invertido</p>
                 <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(report.purchaseTotal)}</p>
-              </article>
-              <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                <p className="text-sm font-medium text-muted">Venta Vs Invertido</p>
-                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(PeriodReport.vsInvested(report))}`}>
-                  {formatMoney(PeriodReport.vsInvested(report))}
-                </p>
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Ganancia Bruta</p>

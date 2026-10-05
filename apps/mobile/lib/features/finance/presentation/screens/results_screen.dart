@@ -165,12 +165,6 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
           const SizedBox(height: 8),
           StatCard(label: 'Invertido', value: formatMoney(report.purchaseTotal), tone: AppColors.danger),
           const SizedBox(height: 8),
-          StatCard(
-            label: 'Venta Vs Invertido',
-            value: formatMoney(report.saleTotal - report.purchaseTotal),
-            tone: moneyColor(report.saleTotal - report.purchaseTotal),
-          ),
-          const SizedBox(height: 8),
           StatCard(label: 'Ganancia Bruta', value: formatMoney(report.grossProfit), tone: moneyColor(report.grossProfit)),
           const SizedBox(height: 8),
           StatCard(label: 'Ganancia Que Tributa', value: formatMoney(report.taxableGrossProfit)),

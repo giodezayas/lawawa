@@ -53,8 +53,4 @@ export const PeriodReport = {
     }
     return 'Una Vez';
   },
-
-  vsInvested(report: PeriodReport): number {
-    return Math.round((report.saleTotal - report.purchaseTotal) * 100) / 100;
-  },
 };
