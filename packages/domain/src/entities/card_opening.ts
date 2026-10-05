@@ -2,6 +2,8 @@ export type CardOpeningProps = {
   readonly asOf: string;
   readonly pAmount: number;
   readonly fAmount: number;
+  readonly cashAsOf: string;
+  readonly cashAmount: number;
   readonly notes: string;
 };
 

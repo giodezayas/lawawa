@@ -54,23 +54,17 @@ function toQty(value: string): number {
 }
 
 type LineEdit = {
-  openingQty: string;
   inboundQty: string;
   outboundQty: string;
   soldQty: string;
-  salePrice: string;
-  replenishmentCost: string;
   inboundAddsStock: boolean;
 };
 
 function lineEditFrom(line: IpvLine): LineEdit {
   return {
-    openingQty: String(line.openingQty),
     inboundQty: String(line.inboundQty),
     outboundQty: String(line.outboundQty),
     soldQty: String(line.soldQty),
-    salePrice: String(line.salePrice),
-    replenishmentCost: String(line.replenishmentCost),
     inboundAddsStock: line.inboundAddsStock,
   };
 }
@@ -249,11 +243,28 @@ export function IpvEditorScreen() {
       ...current,
       productId: product.id,
       productName: product.name,
-      openingQty: current.openingQty || String(fromSack ? 0 : product.stockQty),
-      salePrice: current.salePrice || String(product.salePrice),
-      replenishmentCost: current.replenishmentCost || String(product.replenishmentCost),
+      openingQty: String(fromSack ? 0 : product.stockQty),
+      salePrice: String(product.salePrice),
+      replenishmentCost: String(product.replenishmentCost),
       inboundAddsStock: fromSack ? false : current.inboundAddsStock,
     }));
+    if (!document) {
+      return;
+    }
+    void container.getIpvLineDefaults.execute(document.id, product.id).then((defaults) => {
+      setDraft((current) => {
+        if (current.productId !== product.id) {
+          return current;
+        }
+        return {
+          ...current,
+          openingQty: String(defaults.openingQty),
+          salePrice: String(defaults.salePrice),
+          replenishmentCost: String(defaults.replenishmentCost),
+          productName: defaults.productName || current.productName,
+        };
+      });
+    });
   }
 
   async function addLine(event: FormEvent<HTMLFormElement>) {
@@ -324,12 +335,12 @@ export function IpvEditorScreen() {
         ipvId: document.id,
         productId: line.productId,
         productName: line.productName,
-        openingQty: toQty(edit.openingQty),
+        openingQty: line.openingQty,
         inboundQty: toQty(edit.inboundQty),
         outboundQty: toQty(edit.outboundQty),
         soldQty: toQty(edit.soldQty),
-        salePrice: toQty(edit.salePrice),
-        replenishmentCost: toQty(edit.replenishmentCost),
+        salePrice: line.salePrice,
+        replenishmentCost: line.replenishmentCost,
         inboundAddsStock: edit.inboundAddsStock,
         sortOrder: line.sortOrder,
       });
@@ -405,7 +416,7 @@ export function IpvEditorScreen() {
         <div>
           <h1 className="text-2xl font-extrabold">Crear IPV</h1>
           <p className="mt-1 text-sm text-muted">
-            Un solo documento por día. Al crearlo se cargan solos los productos con stock.
+            Un solo documento por día. Al crearlo el inicio de cada producto es el final del IPV anterior, y el precio y el costo salen del catálogo. Tú pones los vendidos.
           </p>
         </div>
         {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
@@ -583,7 +594,9 @@ export function IpvEditorScreen() {
         <p className="text-sm text-muted">
           Venta {formatMoney(totals.saleTotal)} · Recaudado {formatMoney(cashCollected + toMoneyNumber(transferPCollected) + toMoneyNumber(transferFCollected))}
           {' · '}
-          Efectivo Luego Del Salario {formatMoney(cashCollected - IPV_DAILY_SALARY)}
+          Efectivo Luego Del Salario {formatMoney(IpvDocument.cashAfterSalary(cashCollected))}
+          {' · '}
+          Queda En Caja {formatMoney(IpvDocument.cashAfterSetAside(cashCollected, totals.profit))}
           {cashCollected < 0 ? (
             <span className="text-danger"> · La transferencia supera la venta</span>
           ) : null}
@@ -604,13 +617,6 @@ export function IpvEditorScreen() {
           />
           <div className="grid grid-cols-2 gap-3">
             <TextField
-              id="opening"
-              label="Inicio De Turno"
-              inputMode="decimal"
-              value={draft.openingQty}
-              onChange={(event) => setDraft((current) => ({ ...current, openingQty: event.target.value }))}
-            />
-            <TextField
               id="inbound"
               label="Entradas"
               inputMode="decimal"
@@ -626,26 +632,18 @@ export function IpvEditorScreen() {
             />
             <TextField
               id="sold"
-              label="Vendidos"
+              label="Vendidos *"
               inputMode="decimal"
               value={draft.soldQty}
               onChange={(event) => setDraft((current) => ({ ...current, soldQty: event.target.value }))}
             />
-            <TextField
-              id="sale-price"
-              label="Precio De Venta"
-              inputMode="decimal"
-              value={draft.salePrice}
-              onChange={(event) => setDraft((current) => ({ ...current, salePrice: event.target.value }))}
-            />
-            <TextField
-              id="cost"
-              label="Costo De Reposición"
-              inputMode="decimal"
-              value={draft.replenishmentCost}
-              onChange={(event) => setDraft((current) => ({ ...current, replenishmentCost: event.target.value }))}
-            />
           </div>
+          <p className="text-sm text-muted">
+            Inicio {toQty(draft.openingQty)} · Precio {formatMoney(toQty(draft.salePrice))} · Costo{' '}
+            {formatMoney(toQty(draft.replenishmentCost))} · Stock Final {preview.closingQty} · Total Venta{' '}
+            {formatMoney(preview.saleTotal)} · Ganancia Bruta{' '}
+            <span className={moneyTone(preview.grossProfit)}>{formatMoney(preview.grossProfit)}</span>
+          </p>
           <label className="flex items-start gap-3 text-sm">
             <input
               type="checkbox"
@@ -662,15 +660,6 @@ export function IpvEditorScreen() {
               </span>
             </span>
           </label>
-          <p className="text-sm text-muted">
-            Stock Final {preview.closingQty} · Total Venta {formatMoney(preview.saleTotal)} · Ganancia
-            Bruta <span className={moneyTone(preview.grossProfit)}>{formatMoney(preview.grossProfit)}</span>
-          </p>
-          {draft.productName === 'Azúcar Por Libras' ? (
-            <p className="text-sm text-muted">
-              Pon en Vendidos las libras del día. Al cerrar el IPV se rebajan del saco.
-            </p>
-          ) : null}
           {lineError ? <p className="text-sm text-danger">{lineError}</p> : null}
           <PrimaryButton type="submit" loading={addingLine} loadingLabel="Agregando...">
             Agregar Producto Al IPV
@@ -706,6 +695,14 @@ export function IpvEditorScreen() {
                 const edit = lineDrafts[line.id] ?? lineEditFrom(line);
                 const patch = (next: Partial<LineEdit>) =>
                   setLineDrafts((current) => ({ ...current, [line.id]: { ...edit, ...next } }));
+                const live = IpvLine.compute({
+                  openingQty: line.openingQty,
+                  inboundQty: toQty(edit.inboundQty),
+                  outboundQty: toQty(edit.outboundQty),
+                  soldQty: toQty(edit.soldQty),
+                  salePrice: line.salePrice,
+                  replenishmentCost: line.replenishmentCost,
+                });
                 return (
                   <tr key={line.id} className="border-t border-line align-middle">
                     <td className="px-2 py-1">
@@ -716,9 +713,7 @@ export function IpvEditorScreen() {
                         <span className="block text-[10px] text-muted">Vendidos = lb del saco</span>
                       ) : null}
                     </td>
-                    <td className="px-1 py-1">
-                      <QtyInput value={edit.openingQty} disabled={locked} onChange={(value) => patch({ openingQty: value })} />
-                    </td>
+                    <td className="truncate px-1 py-1 text-right">{line.openingQty}</td>
                     <td className="px-1 py-1">
                       <QtyInput value={edit.inboundQty} disabled={locked} onChange={(value) => patch({ inboundQty: value })} />
                     </td>
@@ -732,26 +727,12 @@ export function IpvEditorScreen() {
                     <td className="px-1 py-1">
                       <QtyInput value={edit.soldQty} disabled={locked} onChange={(value) => patch({ soldQty: value })} />
                     </td>
-                    <td className="truncate px-1 py-1 text-right">{line.closingQty}</td>
-                    <td className="px-1 py-1">
-                      <QtyInput
-                        value={edit.salePrice}
-                        disabled={locked}
-                        display={formatMoney(line.salePrice)}
-                        onChange={(value) => patch({ salePrice: value })}
-                      />
-                    </td>
-                    <td className="px-1 py-1">
-                      <QtyInput
-                        value={edit.replenishmentCost}
-                        disabled={locked}
-                        display={formatMoney(line.replenishmentCost)}
-                        onChange={(value) => patch({ replenishmentCost: value })}
-                      />
-                    </td>
-                    <td className="truncate px-1 py-1 text-right">{formatMoney(line.saleTotal)}</td>
-                    <td className={`truncate px-1 py-1 text-right ${moneyTone(line.grossProfit)}`}>
-                      {formatMoney(line.grossProfit)}
+                    <td className="truncate px-1 py-1 text-right">{live.closingQty}</td>
+                    <td className="truncate px-1 py-1 text-right">{formatMoney(line.salePrice)}</td>
+                    <td className="truncate px-1 py-1 text-right">{formatMoney(line.replenishmentCost)}</td>
+                    <td className="truncate px-1 py-1 text-right">{formatMoney(live.saleTotal)}</td>
+                    <td className={`truncate px-1 py-1 text-right ${moneyTone(live.grossProfit)}`}>
+                      {formatMoney(live.grossProfit)}
                     </td>
                     <td className="px-1 py-1 text-center">
                       {locked ? (

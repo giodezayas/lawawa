@@ -4,6 +4,7 @@ import {
   type CreateIpvInput,
   type IpvDocument,
   type IpvLine,
+  type IpvLineDefaults,
   type IpvRepository,
   type UpsertIpvLineInput,
 } from '@wawa/domain';
@@ -81,9 +82,44 @@ export class IpvRepositoryImpl implements IpvRepository {
       throw new DomainError(error?.message ?? 'No se pudo crear el IPV.', InventoryErrorCodes.invalidInput);
     }
 
-    await this.seedStockedCatalogLines(data.id);
+    const { error: seedError } = await this.client.rpc('seed_ipv_lines', { p_ipv_id: data.id });
+    if (seedError) {
+      await this.seedStockedCatalogLines(data.id);
+    }
     const seeded = await this.getById(data.id);
     return seeded ?? mapIpvDocument(data);
+  }
+
+  async lineDefaults(ipvId: string, productId: string): Promise<IpvLineDefaults> {
+    const { data, error } = await this.client.rpc('ipv_line_defaults', {
+      p_ipv_id: ipvId,
+      p_product_id: productId,
+    });
+    if (!error && data && typeof data === 'object' && !Array.isArray(data)) {
+      const row = data as Record<string, unknown>;
+      return {
+        openingQty: Number(row.opening_qty ?? 0),
+        salePrice: Number(row.sale_price ?? 0),
+        replenishmentCost: Number(row.replenishment_cost ?? 0),
+        productName: String(row.product_name ?? ''),
+      };
+    }
+
+    const { data: catalog, error: catalogError } = await this.client
+      .from('product_catalog')
+      .select('name, sale_price, replenishment_cost, stock_qty')
+      .eq('id', productId)
+      .maybeSingle();
+    if (catalogError || !catalog) {
+      throw new DomainError(catalogError?.message ?? 'No encontramos ese producto.', InventoryErrorCodes.notFound);
+    }
+
+    return {
+      openingQty: Number(catalog.stock_qty),
+      salePrice: Number(catalog.sale_price),
+      replenishmentCost: Number(catalog.replenishment_cost),
+      productName: catalog.name,
+    };
   }
 
   private async seedStockedCatalogLines(ipvId: string): Promise<void> {
@@ -123,18 +159,28 @@ export class IpvRepositoryImpl implements IpvRepository {
     }
   }
 
-  async upsertLine(input: UpsertIpvLineInput): Promise<IpvLine> {
-    const payload = {
-      opening_qty: input.openingQty,
-      inbound_qty: input.inboundQty,
-      outbound_qty: input.outboundQty,
-      sold_qty: input.soldQty,
-      sale_price: input.salePrice,
-      replenishment_cost: input.replenishmentCost,
-      inbound_adds_stock: input.inboundAddsStock,
-      sort_order: input.sortOrder,
-    };
+  private async insertIpvLine(input: UpsertIpvLineInput) {
+    const defaults = await this.lineDefaults(input.ipvId, input.productId);
+    return this.client
+      .from('ipv_lines')
+      .insert({
+        ipv_id: input.ipvId,
+        product_id: input.productId,
+        product_name: defaults.productName || input.productName,
+        opening_qty: defaults.openingQty,
+        inbound_qty: input.inboundQty,
+        outbound_qty: input.outboundQty,
+        sold_qty: input.soldQty,
+        sale_price: defaults.salePrice,
+        replenishment_cost: defaults.replenishmentCost,
+        inbound_adds_stock: input.inboundAddsStock,
+        sort_order: input.sortOrder,
+      })
+      .select('*')
+      .single();
+  }
 
+  async upsertLine(input: UpsertIpvLineInput): Promise<IpvLine> {
     let lineId = input.id;
     if (!lineId) {
       const { data: existing, error: existingError } = await this.client
@@ -150,16 +196,20 @@ export class IpvRepositoryImpl implements IpvRepository {
       lineId = existing?.id;
     }
 
-    const query = lineId
-      ? this.client.from('ipv_lines').update(payload).eq('id', lineId)
-      : this.client.from('ipv_lines').insert({
-          ipv_id: input.ipvId,
-          product_id: input.productId,
-          product_name: input.productName,
-          ...payload,
-        });
-
-    const { data, error } = await query.select('*').single();
+    const { data, error } = lineId
+      ? await this.client
+          .from('ipv_lines')
+          .update({
+            inbound_qty: input.inboundQty,
+            outbound_qty: input.outboundQty,
+            sold_qty: input.soldQty,
+            inbound_adds_stock: input.inboundAddsStock,
+            sort_order: input.sortOrder,
+          })
+          .eq('id', lineId)
+          .select('*')
+          .single()
+      : await this.insertIpvLine(input);
 
     if (error || !data) {
       if (error?.message.includes('cerrado')) {

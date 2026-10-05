@@ -1,10 +1,9 @@
 import {
   DomainError,
-  DashboardStats,
   FIXED_TAX_RATE,
   User,
   CardLedger,
-  type CashFlow,
+  IpvDocument,
   PeriodReport,
   Product,
   formatDateOnly,
@@ -16,17 +15,16 @@ import {
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
-import { CashFlowSummary } from '../../../shared/ui/cash_flow_summary';
+import { RecaudoSummary } from '../../../shared/ui/cash_flow_summary';
 import { moneyTone } from '../../../shared/ui/money_tone';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
 export function DashboardScreen() {
   const { container, user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [month, setMonth] = useState<PeriodReport | null>(null);
-  const [todayFlow, setTodayFlow] = useState<CashFlow | null>(null);
-  const [periodFlow, setPeriodFlow] = useState<CashFlow | null>(null);
+  const [lastIpv, setLastIpv] = useState<IpvDocument | null>(null);
+  const [periodRecaudo, setPeriodRecaudo] = useState({ cash: 0, transfer: 0 });
   const [cards, setCards] = useState<ReturnType<typeof CardLedger.from> | null>(null);
   const [lowStock, setLowStock] = useState<Product[]>([]);
   const [pageError, setPageError] = useState('');
@@ -39,27 +37,22 @@ export function DashboardScreen() {
     const period = from && to ? { from, to } : await container.getBillingPeriod.execute();
     setPeriodFrom(period.from);
     setPeriodTo(period.to);
-    const today = todayIsoDate();
-      const [nextStats, products, monthReport, todayCash, periodCash, ipvs, opening] = await Promise.all([
-        container.getDashboardStats.execute(),
-        container.listProducts.execute(),
-        container.getPeriodReport.execute(period.from, period.to),
-        container.getCashFlow.execute(today, today),
-        container.getCashFlow.execute(period.from, period.to),
-        container.listIpvs.execute(),
-        container.getCardOpening.execute(),
-      ]);
-      const ledgerTo = opening && opening.asOf > period.to ? opening.asOf : period.to;
-      const moveFrom = opening && opening.asOf < period.from ? opening.asOf : period.from;
-      const moves = opening
-        ? await container.listCashMoves.execute(moveFrom, ledgerTo)
-        : [];
-      setStats(nextStats);
-      setLowStock(products.filter((product) => Product.isLowStock(product)));
-      setMonth(monthReport);
-      setTodayFlow(todayCash);
-      setPeriodFlow(periodCash);
-      setCards(CardLedger.from(ipvs, moves, period.from, period.to, opening));
+    const [products, monthReport, ipvs, opening, purchases, expenses] = await Promise.all([
+      container.listProducts.execute(),
+      container.getPeriodReport.execute(period.from, period.to),
+      container.listIpvs.execute(),
+      container.getCardOpening.execute(),
+      container.listPurchases.execute(),
+      container.listExpenseEntries.execute(),
+    ]);
+    const ledgerTo = opening && opening.asOf > period.to ? opening.asOf : period.to;
+    const moveFrom = opening && opening.asOf < period.from ? opening.asOf : period.from;
+    const moves = opening ? await container.listCashMoves.execute(moveFrom, ledgerTo) : [];
+    setLowStock(products.filter((product) => Product.isLowStock(product)));
+    setMonth(monthReport);
+    setLastIpv(IpvDocument.latest(ipvs));
+    setPeriodRecaudo(IpvDocument.cajaInRange(ipvs, purchases, expenses, period.from, period.to, opening));
+    setCards(CardLedger.from(ipvs, moves, period.from, period.to, opening));
   }
 
   useEffect(() => {
@@ -103,9 +96,6 @@ export function DashboardScreen() {
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
       <section className="space-y-3 rounded-3xl border border-line bg-white px-5 py-4">
         <h2 className="text-sm font-semibold text-primary">Período De Trabajo</h2>
-        <p className="text-sm text-muted">
-          Por defecto es el mes natural: día 1 hasta hoy. Puedes ver el mes anterior o elegir fechas.
-        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
             label="Desde *"
@@ -146,36 +136,43 @@ export function DashboardScreen() {
           </div>
         ) : null}
       </section>
-      {!stats ? (
+      {!month && !lastIpv ? (
         pageError ? null : <p className="text-sm text-muted">Cargando Estadísticas...</p>
       ) : (
         <>
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-primary">Operación De Hoy</h2>
+            <h2 className="text-sm font-semibold text-primary">
+              Último IPV{lastIpv ? ` · ${formatDateOnly(lastIpv.workDate)}` : ''}
+            </h2>
             <div className="grid gap-3 sm:grid-cols-3">
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Venta</p>
-                <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(stats.saleToday)}</p>
-              </article>
-              <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                <p className="text-sm font-medium text-muted">Ganancia Bruta</p>
-                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(stats.profitToday)}`}>
-                  {formatMoney(stats.profitToday)}
+                <p className="mt-1 text-right text-2xl font-extrabold">
+                  {formatMoney(lastIpv ? IpvDocument.saleTotal(lastIpv) : 0)}
                 </p>
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                <p className="text-sm font-medium text-muted">IPV</p>
-                <p className="mt-1 text-2xl font-extrabold">{DashboardStats.ipvTodayLabel(stats.ipvTodayStatus)}</p>
+                <p className="text-sm font-medium text-muted">Ganancia Bruta</p>
+                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastIpv ? IpvDocument.grossProfit(lastIpv) : 0)}`}>
+                  {formatMoney(lastIpv ? IpvDocument.grossProfit(lastIpv) : 0)}
+                </p>
+              </article>
+              <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                <p className="text-sm font-medium text-muted">Estado</p>
+                <p className="mt-1 text-2xl font-extrabold">{lastIpv ? IpvDocument.statusLabel(lastIpv.status) : 'Sin IPV'}</p>
               </article>
             </div>
           </section>
-          {todayFlow ? <CashFlowSummary flow={todayFlow} title="Caja De Hoy" /> : null}
-          {periodFlow ? (
-            <CashFlowSummary
-              flow={periodFlow}
-              title={`Caja Del Período${month ? ` · ${formatDateOnly(month.from)} — ${formatDateOnly(month.to)}` : ''}`}
-            />
-          ) : null}
+          <RecaudoSummary
+            title="Última Caja"
+            cash={lastIpv?.cashCollected ?? 0}
+            transfer={lastIpv ? IpvDocument.transferTotal(lastIpv) : 0}
+          />
+          <RecaudoSummary
+            title={`Caja Del Período${month ? ` · ${formatDateOnly(month.from)} — ${formatDateOnly(month.to)}` : ''}`}
+            cash={periodRecaudo.cash}
+            transfer={periodRecaudo.transfer}
+          />
           {cards ? (
             <section className="space-y-3">
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -223,15 +220,8 @@ export function DashboardScreen() {
                   <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(month.purchaseTotal)}</p>
                 </article>
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                  <p className="text-sm font-medium text-muted">Venta Vs Invertido</p>
-                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(PeriodReport.vsInvested(month))}`}>
-                    {formatMoney(PeriodReport.vsInvested(month))}
-                  </p>
-                </article>
-                <article className="rounded-3xl border border-line bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Impuestos A Pagar</p>
                   <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(month.tax)}</p>
-                  <p className="mt-2 text-right text-xs text-muted">Sobre productos que tributan</p>
                 </article>
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Te Quedas</p>

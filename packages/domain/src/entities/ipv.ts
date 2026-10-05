@@ -1,3 +1,8 @@
+import { addDays } from '../shared/date';
+import type { CardOpening } from './card_opening';
+import type { ExpenseEntry } from './expense';
+import { PurchaseDocument } from './purchase';
+
 export const ipvShifts = ['manana', 'noche'] as const;
 export type IpvShift = (typeof ipvShifts)[number];
 
@@ -77,6 +82,69 @@ export const IpvDocument = {
     return document.status === 'open';
   },
 
+  latest(documents: readonly IpvDocument[]): IpvDocument | null {
+    return documents.reduce<IpvDocument | null>((best, row) => {
+      if (!best || row.workDate > best.workDate || (row.workDate === best.workDate && row.id > best.id)) {
+        return row;
+      }
+      return best;
+    }, null);
+  },
+
+  recaudoInRange(documents: readonly IpvDocument[], from: string, to: string): { cash: number; transfer: number } {
+    return documents.reduce(
+      (sum, row) => {
+        if (row.workDate < from || row.workDate > to) {
+          return sum;
+        }
+        return {
+          cash: roundMoney(sum.cash + row.cashCollected),
+          transfer: roundMoney(sum.transfer + row.transferCollected),
+        };
+      },
+      { cash: 0, transfer: 0 },
+    );
+  },
+
+  cajaInRange(
+    documents: readonly IpvDocument[],
+    purchases: readonly PurchaseDocument[],
+    expenses: readonly ExpenseEntry[],
+    from: string,
+    to: string,
+    opening?: Pick<CardOpening, 'cashAsOf' | 'cashAmount'> | null,
+  ): { cash: number; transfer: number } {
+    const hasCount = Boolean(opening && to >= opening.cashAsOf);
+    const cashFrom = hasCount && opening ? addDays(opening.cashAsOf, 1) : from;
+    const recaudoCash = cashFrom <= to ? IpvDocument.recaudoInRange(documents, cashFrom, to).cash : 0;
+    const recaudoTransfer = IpvDocument.recaudoInRange(documents, from, to).transfer;
+    let cashPurchases = 0;
+    let transferPurchases = 0;
+    for (const purchase of purchases) {
+      const total = PurchaseDocument.total(purchase);
+      if (purchase.purchasedOn >= from && purchase.purchasedOn <= to && purchase.paymentMethod === 'transfer') {
+        transferPurchases += total;
+      }
+      if (cashFrom <= to && purchase.purchasedOn >= cashFrom && purchase.purchasedOn <= to && purchase.paymentMethod !== 'transfer') {
+        cashPurchases += total;
+      }
+    }
+    const expenseTotal =
+      cashFrom <= to
+        ? expenses.reduce((sum, entry) => {
+            if (entry.occurredOn < cashFrom || entry.occurredOn > to) {
+              return sum;
+            }
+            return sum + entry.amount;
+          }, 0)
+        : 0;
+    const counted = hasCount && opening ? opening.cashAmount : 0;
+    return {
+      cash: roundMoney(counted + recaudoCash - cashPurchases - expenseTotal),
+      transfer: roundMoney(recaudoTransfer - transferPurchases),
+    };
+  },
+
   shiftLabel(shift: IpvShift): string {
     return shift === 'manana' ? 'Mañana' : 'Noche';
   },
@@ -99,6 +167,10 @@ export const IpvDocument = {
 
   cashAfterSalary(cashCollected: number): number {
     return roundMoney(cashCollected - IPV_DAILY_SALARY);
+  },
+
+  cashAfterSetAside(cashCollected: number, grossProfit: number): number {
+    return roundMoney(cashCollected - grossProfit);
   },
 
   saleTotal(document: IpvDocument): number {

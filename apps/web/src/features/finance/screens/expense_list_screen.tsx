@@ -25,8 +25,8 @@ export function ExpenseListScreen() {
     try {
       const period = await container.getBillingPeriod.execute();
       setRows(await container.listExpenseEntries.execute());
-      setFromDate((current) => current || period.from);
-      setToDate((current) => current || period.to);
+      setFromDate(period.from);
+      setToDate(period.to);
     } finally {
       setLoading(false);
     }

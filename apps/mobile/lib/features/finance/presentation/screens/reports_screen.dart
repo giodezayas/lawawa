@@ -103,6 +103,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               TextButton(onPressed: () => _shift(1), child: const Text('Siguiente')),
             ],
           ),
+          TextButton(
+            onPressed: () {
+              final live = defaultBillingPeriod();
+              setState(() {
+                _from = live.from;
+                _to = live.to;
+              });
+              _load();
+            },
+            child: const Text('Este Mes'),
+          ),
           ErrorBanner(_error),
           if (_loading) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
           if (!_loading && insight != null) ...[

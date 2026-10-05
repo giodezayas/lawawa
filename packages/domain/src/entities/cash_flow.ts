@@ -12,6 +12,9 @@ export type CashFlowProps = {
   readonly transferToCash: number;
   readonly cashToTransfer: number;
   readonly ipvSalary: number;
+  readonly ipvSetAside: number;
+  readonly cashOpening: number;
+  readonly cashOpeningOn: string | null;
   readonly firstSaleOn: string | null;
 };
 

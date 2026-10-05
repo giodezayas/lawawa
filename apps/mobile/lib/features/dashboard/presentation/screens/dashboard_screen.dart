@@ -19,10 +19,9 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  DashStats? _stats;
   PeriodReport? _period;
-  CashFlow? _todayFlow;
-  CashFlow? _periodFlow;
+  IpvDoc? _lastIpv;
+  ({double cash, double transfer}) _periodRecaudo = (cash: 0, transfer: 0);
   CardBalances? _cards;
   List<ProductRow> _lowStock = [];
   var _error = '';
@@ -47,13 +46,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final period = await api.billingPeriod();
       _from = period.from;
       _to = period.to;
-      final today = isoDate();
-      final stats = await api.dashboardStats();
       final products = await api.products();
       final report = await api.periodReport(period.from, period.to);
-      final todayFlow = await api.cashFlow(today, today);
-      final periodFlow = await api.cashFlow(period.from, period.to);
       final ipvs = await api.ipvs();
+      final purchases = await api.purchases();
+      final expenses = await api.expenses();
       final opening = await api.cardOpening();
       final ledgerTo = opening != null && opening.asOf.compareTo(period.to) > 0 ? opening.asOf : period.to;
       final moveFrom = opening != null && opening.asOf.compareTo(period.from) < 0 ? opening.asOf : period.from;
@@ -62,10 +59,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return;
       }
       setState(() {
-        _stats = stats;
         _period = report;
-        _todayFlow = todayFlow;
-        _periodFlow = periodFlow;
+        _lastIpv = _latestIpv(ipvs);
+        _periodRecaudo = _cajaInRange(ipvs, purchases, expenses, period.from, period.to, opening);
         _cards = CardBalances.from(ipvs, moves, period.from, period.to, opening);
         _lowStock = products.where((product) => product.isLowStock).toList();
         _from = period.from;
@@ -136,8 +132,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final stats = _stats;
     final period = _period;
+    final lastIpv = _lastIpv;
     final auth = ref.watch(authControllerProvider);
     final canManage = auth is AuthAuthenticated && auth.user.canManageStaff;
     return RefreshIndicator(
@@ -151,10 +147,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ErrorBanner(_error),
           const Text('Período De Trabajo', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          const Text(
-            'Por defecto es el mes natural: día 1 hasta hoy. Puedes ver el mes anterior o elegir fechas.',
-            style: TextStyle(color: AppColors.muted),
-          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Desde *'),
@@ -180,26 +172,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          if (stats != null) ...[
-            const Text('Operación De Hoy', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            StatCard(label: 'Venta', value: formatMoney(stats.saleToday)),
-            const SizedBox(height: 8),
-            StatCard(label: 'Ganancia Bruta', value: formatMoney(stats.profitToday), tone: moneyColor(stats.profitToday)),
-            const SizedBox(height: 8),
-            StatCard(label: 'IPV', value: ipvTodayLabel(stats.ipvTodayStatus)),
-            const SizedBox(height: 20),
-          ],
-          if (_todayFlow != null) CashFlowCards(flow: _todayFlow!, title: 'Caja De Hoy'),
-          if (_periodFlow != null) ...[
-            const SizedBox(height: 20),
-            CashFlowCards(
-              flow: _periodFlow!,
-              title: period == null
-                  ? 'Caja Del Período'
-                  : 'Caja Del Período · ${formatDateOnly(period.from)} — ${formatDateOnly(period.to)}',
-            ),
-          ],
+          Text(
+            lastIpv == null ? 'Último IPV' : 'Último IPV · ${formatDateOnly(lastIpv.workDate)}',
+            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          StatCard(label: 'Venta', value: formatMoney(lastIpv?.saleTotal ?? 0)),
+          const SizedBox(height: 8),
+          StatCard(
+            label: 'Ganancia Bruta',
+            value: formatMoney(lastIpv?.grossProfit ?? 0),
+            tone: moneyColor(lastIpv?.grossProfit ?? 0),
+          ),
+          const SizedBox(height: 8),
+          StatCard(label: 'Estado', value: ipvTodayLabel(lastIpv?.status ?? '')),
+          const SizedBox(height: 20),
+          RecaudoCards(
+            title: 'Última Caja',
+            cash: lastIpv?.cashCollected ?? 0,
+            transfer: lastIpv?.transferCollected ?? 0,
+          ),
+          const SizedBox(height: 20),
+          RecaudoCards(
+            title: period == null
+                ? 'Caja Del Período'
+                : 'Caja Del Período · ${formatDateOnly(period.from)} — ${formatDateOnly(period.to)}',
+            cash: _periodRecaudo.cash,
+            transfer: _periodRecaudo.transfer,
+          ),
           if (_cards != null) ...[
             const SizedBox(height: 20),
             const Text('Tarjetas', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
@@ -240,12 +240,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             StatCard(label: 'Venta Del Período', value: formatMoney(period.saleTotal)),
             const SizedBox(height: 8),
             StatCard(label: 'Invertido', value: formatMoney(period.purchaseTotal), tone: AppColors.danger),
-            const SizedBox(height: 8),
-            StatCard(
-              label: 'Venta Vs Invertido',
-              value: formatMoney(period.saleTotal - period.purchaseTotal),
-              tone: moneyColor(period.saleTotal - period.purchaseTotal),
-            ),
           ],
           if (_lowStock.isNotEmpty) ...[
             const SizedBox(height: 20),
@@ -264,3 +258,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 }
+
+IpvDoc? _latestIpv(List<IpvDoc> documents) {
+  IpvDoc? best;
+  for (final row in documents) {
+    if (best == null ||
+        row.workDate.compareTo(best.workDate) > 0 ||
+        (row.workDate == best.workDate && row.id.compareTo(best.id) > 0)) {
+      best = row;
+    }
+  }
+  return best;
+}
+
+({double cash, double transfer}) _cajaInRange(
+  List<IpvDoc> documents,
+  List<PurchaseDoc> purchases,
+  List<ExpenseRow> expenses,
+  String from,
+  String to,
+  ({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})? opening,
+) {
+  String cashFrom = from;
+  var cash = 0.0;
+  if (opening != null && to.compareTo(opening.cashAsOf) >= 0) {
+    cashFrom = isoDate(DateTime.parse('${opening.cashAsOf}T00:00:00').add(const Duration(days: 1)));
+    cash = opening.cashAmount;
+  }
+  var transfer = 0.0;
+  for (final row in documents) {
+    if (row.workDate.compareTo(from) >= 0 && row.workDate.compareTo(to) <= 0) {
+      transfer += row.transferCollected;
+    }
+    if (cashFrom.compareTo(to) <= 0 && row.workDate.compareTo(cashFrom) >= 0 && row.workDate.compareTo(to) <= 0) {
+      cash += row.cashCollected;
+    }
+  }
+  for (final purchase in purchases) {
+    if (purchase.purchasedOn.compareTo(from) >= 0 &&
+        purchase.purchasedOn.compareTo(to) <= 0 &&
+        purchase.paymentMethod == 'transfer') {
+      transfer -= purchase.total;
+    }
+    if (cashFrom.compareTo(to) <= 0 &&
+        purchase.purchasedOn.compareTo(cashFrom) >= 0 &&
+        purchase.purchasedOn.compareTo(to) <= 0 &&
+        purchase.paymentMethod != 'transfer') {
+      cash -= purchase.total;
+    }
+  }
+  if (cashFrom.compareTo(to) <= 0) {
+    for (final expense in expenses) {
+      if (expense.occurredOn.compareTo(cashFrom) < 0 || expense.occurredOn.compareTo(to) > 0) {
+        continue;
+      }
+      cash -= expense.amount;
+    }
+  }
+  return (cash: (cash * 100).round() / 100, transfer: (transfer * 100).round() / 100);
+}
+

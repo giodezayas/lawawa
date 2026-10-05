@@ -71,15 +71,11 @@ class WawaClient {
           .select('billing_period_from, billing_period_to, billing_period_live')
           .limit(1)
           .maybeSingle();
-      if (row?['billing_period_live'] != false) {
-        return defaultBillingPeriod();
-      }
-      final from = row?['billing_period_from'] as String?;
-      final to = row?['billing_period_to'] as String?;
-      if (from != null && to != null && to.compareTo(from) >= 0) {
-        return (from: from, to: to);
-      }
-      return defaultBillingPeriod();
+      return resolveBillingPeriod(
+        from: row?['billing_period_from'] as String?,
+        to: row?['billing_period_to'] as String?,
+        live: row?['billing_period_live'] as bool?,
+      );
     });
   }
 
@@ -173,6 +169,9 @@ class WawaClient {
         transferToCash: asNum(row['transfer_to_cash']),
         cashToTransfer: asNum(row['cash_to_transfer']),
         ipvSalary: asNum(row['ipv_salary']),
+        ipvSetAside: asNum(row['ipv_set_aside']),
+        cashOpening: asNum(row['cash_opening']),
+        cashOpeningOn: row['cash_opening_on'] is String ? row['cash_opening_on'] as String : null,
         firstSaleOn: row['first_sale_on'] is String ? row['first_sale_on'] as String : null,
       );
     });
@@ -229,7 +228,7 @@ class WawaClient {
     });
   }
 
-  Future<({String asOf, double pAmount, double fAmount})?> cardOpening() {
+  Future<({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})?> cardOpening() {
     return _run(() async {
       final row = await _client.from('card_opening').select().limit(1).maybeSingle();
       if (row == null) {
@@ -239,6 +238,8 @@ class WawaClient {
         asOf: '${row['as_of']}',
         pAmount: asNum(row['p_amount']),
         fAmount: asNum(row['f_amount']),
+        cashAsOf: '${row['cash_as_of'] ?? row['as_of']}',
+        cashAmount: asNum(row['cash_amount']),
       );
     });
   }
@@ -247,17 +248,21 @@ class WawaClient {
     required String asOf,
     required double pAmount,
     required double fAmount,
+    required String cashAsOf,
+    required double cashAmount,
     required String updatedBy,
   }) {
     return _run(() async {
-      if (pAmount < 0 || fAmount < 0) {
-        throw const DomainError('El saldo de las tarjetas no puede ser negativo.', 'ERR');
+      if (pAmount < 0 || fAmount < 0 || cashAmount < 0) {
+        throw const DomainError('El saldo no puede ser negativo.', 'ERR');
       }
       await _client.from('card_opening').upsert({
         'id': true,
         'as_of': asOf,
         'p_amount': pAmount,
         'f_amount': fAmount,
+        'cash_as_of': cashAsOf,
+        'cash_amount': cashAmount,
         'updated_by': updatedBy,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
@@ -408,36 +413,56 @@ class WawaClient {
         'shift': 'manana',
         'created_by': createdBy,
       }).select().single();
-      final ipvId = row['id'] as String;
-      final catalog = await _client.from('product_catalog').select().eq('is_active', true).gt('stock_qty', 0).order('name');
-      final products = (catalog as List)
-          .map((item) => _product(Map<String, dynamic>.from(item as Map)))
-          .where((product) => product.isActive && product.stockQty > 0)
-          .toList();
-      if (products.isNotEmpty) {
-        await _client.from('ipv_lines').insert(
-          products
-              .asMap()
-              .entries
-              .map(
-                (entry) => {
-                  'ipv_id': ipvId,
-                  'product_id': entry.value.id,
-                  'product_name': entry.value.name,
-                  'opening_qty': entry.value.stockQty,
-                  'inbound_qty': 0,
-                  'outbound_qty': 0,
-                  'sold_qty': 0,
-                  'sale_price': entry.value.salePrice,
-                  'replenishment_cost': entry.value.replenishmentCost,
-                  'inbound_adds_stock': false,
-                  'sort_order': entry.key,
-                },
-              )
-              .toList(),
-        );
+      const ipvId = row['id'] as String;
+      try {
+        await _client.rpc('seed_ipv_lines', params: {'p_ipv_id': ipvId});
+      } catch (_) {
+        final catalog = await _client.from('product_catalog').select().eq('is_active', true).gt('stock_qty', 0).order('name');
+        final products = (catalog as List)
+            .map((item) => _product(Map<String, dynamic>.from(item as Map)))
+            .where((product) => product.isActive && product.stockQty > 0)
+            .toList();
+        if (products.isNotEmpty) {
+          await _client.from('ipv_lines').insert(
+            products
+                .asMap()
+                .entries
+                .map(
+                  (entry) => {
+                    'ipv_id': ipvId,
+                    'product_id': entry.value.id,
+                    'product_name': entry.value.name,
+                    'opening_qty': entry.value.stockQty,
+                    'inbound_qty': 0,
+                    'outbound_qty': 0,
+                    'sold_qty': 0,
+                    'sale_price': entry.value.salePrice,
+                    'replenishment_cost': entry.value.replenishmentCost,
+                    'inbound_adds_stock': false,
+                    'sort_order': entry.key,
+                  },
+                )
+                .toList(),
+          );
+        }
       }
       return ipv(ipvId);
+    });
+  }
+
+  Future<({double openingQty, double salePrice, double replenishmentCost, String productName})> ipvLineDefaults(
+    String ipvId,
+    String productId,
+  ) {
+    return _run(() async {
+      final data = await _client.rpc('ipv_line_defaults', params: {'p_ipv_id': ipvId, 'p_product_id': productId});
+      final row = Map<String, dynamic>.from(data as Map);
+      return (
+        openingQty: asNum(row['opening_qty']),
+        salePrice: asNum(row['sale_price']),
+        replenishmentCost: asNum(row['replenishment_cost']),
+        productName: '${row['product_name'] ?? ''}',
+      );
     });
   }
 
@@ -456,16 +481,6 @@ class WawaClient {
     required int sortOrder,
   }) {
     return _run(() async {
-      final payload = {
-        'opening_qty': openingQty,
-        'inbound_qty': inboundQty,
-        'outbound_qty': outboundQty,
-        'sold_qty': soldQty,
-        'sale_price': salePrice,
-        'replenishment_cost': replenishmentCost,
-        'inbound_adds_stock': inboundAddsStock,
-        'sort_order': sortOrder,
-      };
       var lineId = id;
       if (lineId == null) {
         final existing = await _client
@@ -478,13 +493,27 @@ class WawaClient {
       }
       final Map<String, dynamic> row;
       if (lineId != null) {
-        row = await _client.from('ipv_lines').update(payload).eq('id', lineId).select().single();
+        row = await _client.from('ipv_lines').update({
+          'inbound_qty': inboundQty,
+          'outbound_qty': outboundQty,
+          'sold_qty': soldQty,
+          'inbound_adds_stock': inboundAddsStock,
+          'sort_order': sortOrder,
+        }).eq('id', lineId).select().single();
       } else {
+        final defaults = await ipvLineDefaults(ipvId, productId);
         row = await _client.from('ipv_lines').insert({
           'ipv_id': ipvId,
           'product_id': productId,
-          'product_name': productName,
-          ...payload,
+          'product_name': defaults.productName.isEmpty ? productName : defaults.productName,
+          'opening_qty': defaults.openingQty,
+          'inbound_qty': inboundQty,
+          'outbound_qty': outboundQty,
+          'sold_qty': soldQty,
+          'sale_price': defaults.salePrice,
+          'replenishment_cost': defaults.replenishmentCost,
+          'inbound_adds_stock': inboundAddsStock,
+          'sort_order': sortOrder,
         }).select().single();
       }
       return _ipvLine(row);

@@ -13,9 +13,23 @@ export function defaultBillingPeriod(): BillingPeriodBounds {
   return { from: startOfMonth(today), to: today };
 }
 
-export function isLiveCurrentMonth(from: string, to: string): boolean {
-  const live = defaultBillingPeriod();
-  return from === live.from && to === live.to;
+export function isLiveCurrentMonth(from: string, _to?: string): boolean {
+  return from === defaultBillingPeriod().from;
+}
+
+export function resolveBillingPeriod(stored: {
+  from?: string | null;
+  to?: string | null;
+  live?: boolean | null;
+} | null): BillingPeriodBounds {
+  const livePeriod = defaultBillingPeriod();
+  if (!stored || stored.live !== false || stored.from === livePeriod.from) {
+    return livePeriod;
+  }
+  if (typeof stored.from === 'string' && typeof stored.to === 'string' && stored.to >= stored.from) {
+    return { from: stored.from, to: stored.to };
+  }
+  return livePeriod;
 }
 
 export function shiftCalendarMonth(from: string, direction: number): BillingPeriodBounds {

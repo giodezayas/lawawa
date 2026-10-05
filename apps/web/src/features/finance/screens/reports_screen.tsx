@@ -1,4 +1,4 @@
-import { DomainError, SalesInsight, formatDateOnly, formatMoney, shiftCalendarMonth } from '@wawa/domain';
+import { DomainError, SalesInsight, defaultBillingPeriod, formatDateOnly, formatMoney, shiftCalendarMonth } from '@wawa/domain';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { ExportButtons } from '../../../shared/ui/export_buttons';
@@ -37,20 +37,26 @@ export function ReportsScreen() {
   const [insight, setInsight] = useState<ReturnType<typeof SalesInsight.fromIpvs> | null>(null);
 
   useEffect(() => {
+    void container.getBillingPeriod
+      .execute()
+      .then((period) => {
+        setFrom(period.from);
+        setTo(period.to);
+      })
+      .catch((error) => {
+        setPageError(error instanceof DomainError ? error.message : 'No se pudieron armar las estadísticas.');
+      });
+  }, [container]);
+
+  useEffect(() => {
+    if (!from || !to) {
+      return;
+    }
     void (async () => {
       setLoading(true);
       try {
-        const period = await container.getBillingPeriod.execute();
-        const nextFrom = from || period.from;
-        const nextTo = to || period.to;
-        if (!from) {
-          setFrom(period.from);
-        }
-        if (!to) {
-          setTo(period.to);
-        }
         const ipvs = await container.listIpvs.execute();
-        setInsight(SalesInsight.fromIpvs(ipvs, nextFrom, nextTo));
+        setInsight(SalesInsight.fromIpvs(ipvs, from, to));
       } catch (error) {
         setPageError(error instanceof DomainError ? error.message : 'No se pudieron armar las estadísticas.');
       } finally {
@@ -123,6 +129,17 @@ export function ReportsScreen() {
         </p>
         <button type="button" className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold" onClick={() => shift(1)}>
           Siguiente
+        </button>
+        <button
+          type="button"
+          className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold"
+          onClick={() => {
+            const live = defaultBillingPeriod();
+            setFrom(live.from);
+            setTo(live.to);
+          }}
+        >
+          Este Mes
         </button>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}

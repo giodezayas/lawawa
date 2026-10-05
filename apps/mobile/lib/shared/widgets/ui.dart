@@ -81,6 +81,28 @@ class LabeledField extends StatelessWidget {
   }
 }
 
+class RecaudoCards extends StatelessWidget {
+  const RecaudoCards({super.key, required this.title, required this.cash, required this.transfer});
+
+  final String title;
+  final double cash;
+  final double transfer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 12),
+        StatCard(label: 'Efectivo', value: formatMoney(cash), tone: moneyColor(cash)),
+        const SizedBox(height: 12),
+        StatCard(label: 'Transferencia', value: formatMoney(transfer), tone: moneyColor(transfer)),
+      ],
+    );
+  }
+}
+
 class CashFlowCards extends StatelessWidget {
   const CashFlowCards({super.key, required this.flow, required this.title});
 
@@ -89,41 +111,7 @@ class CashFlowCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Text(
-          flow.firstSaleOn == null
-              ? 'Todavía no hay venta, así que no hay flujo de caja.'
-              : 'Empieza el ${formatDateOnly(flow.firstSaleOn!)}, con la primera venta. Las compras de antes son inversión y no entran aquí.',
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
-        ),
-        const SizedBox(height: 12),
-        StatCard(
-          label: 'Efectivo',
-          value: formatMoney(flow.cashNet),
-          tone: moneyColor(flow.cashNet),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'IPV ${formatMoney(flow.ipvCash)} · De Transferencia ${formatMoney(flow.transferToCash)} · Compras ${formatMoney(flow.cashPurchases)}${flow.ipvSalary > 0 ? ' · Salario ${formatMoney(flow.ipvSalary)}' : ''}${flow.cashToTransfer > 0 ? ' · A Transferencia ${formatMoney(flow.cashToTransfer)}' : ''}',
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
-        ),
-        const SizedBox(height: 12),
-        StatCard(
-          label: 'Transferencia',
-          value: formatMoney(flow.transferNet),
-          tone: moneyColor(flow.transferNet),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'IPV ${formatMoney(flow.ipvTransfer)} · Compras ${formatMoney(flow.transferPurchases)} · Extracciones ${formatMoney(flow.transferToCash)}${flow.cashToTransfer > 0 ? ' · De Efectivo ${formatMoney(flow.cashToTransfer)}' : ''}',
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
-        ),
-      ],
-    );
+    return RecaudoCards(title: title, cash: flow.cashNet, transfer: flow.transferNet);
   }
 }
 

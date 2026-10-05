@@ -32,8 +32,8 @@ export function PurchaseListScreen() {
       ]);
       setRows(nextRows);
       setFlow(nextFlow);
-      setFromDate((current) => current || period.from);
-      setToDate((current) => current || period.to);
+      setFromDate(period.from);
+      setToDate(period.to);
     } finally {
       setLoading(false);
     }
@@ -124,8 +124,23 @@ export function PurchaseListScreen() {
         toId="purchase-to"
         from={fromDate}
         to={toDate}
-        onFrom={setFromDate}
-        onTo={setToDate}
+        onFrom={(value) => {
+          setFromDate(value);
+          if (value && toDate) {
+            void container.getCashFlow.execute(value, toDate).then(setFlow);
+          }
+        }}
+        onTo={(value) => {
+          setToDate(value);
+          if (fromDate && value) {
+            void container.getCashFlow.execute(fromDate, value).then(setFlow);
+          }
+        }}
+        onRange={(nextFrom, nextTo) => {
+          setFromDate(nextFrom);
+          setToDate(nextTo);
+          void container.getCashFlow.execute(nextFrom, nextTo).then(setFlow);
+        }}
       />
       <p className="text-sm text-muted">
         {loading ? 'Cargando Compras...' : `${sorted.length} Compra${sorted.length === 1 ? '' : 's'} En El Rango`}

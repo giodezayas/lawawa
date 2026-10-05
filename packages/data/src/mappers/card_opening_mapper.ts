@@ -8,6 +8,8 @@ export function mapCardOpening(row: Row): CardOpening {
     asOf: row.as_of,
     pAmount: Number(row.p_amount),
     fAmount: Number(row.f_amount),
+    cashAsOf: row.cash_as_of,
+    cashAmount: Number(row.cash_amount),
     notes: row.notes,
   });
 }

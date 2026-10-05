@@ -49,8 +49,8 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
         return;
       }
       setState(() {
-        _from = _from.isEmpty ? period.from : _from;
-        _to = _to.isEmpty ? period.to : _to;
+        _from = period.from;
+        _to = period.to;
         _rows = rows;
         _loading = false;
       });

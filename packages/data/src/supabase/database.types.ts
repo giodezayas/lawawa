@@ -356,6 +356,8 @@ export type Database = {
           as_of: string;
           p_amount: string;
           f_amount: string;
+          cash_as_of: string;
+          cash_amount: string;
           notes: string;
           updated_by: string | null;
           updated_at: string;
@@ -365,6 +367,8 @@ export type Database = {
           as_of: string;
           p_amount?: number | string;
           f_amount?: number | string;
+          cash_as_of?: string;
+          cash_amount?: number | string;
           notes?: string;
           updated_by?: string | null;
           updated_at?: string;
@@ -373,6 +377,8 @@ export type Database = {
           as_of?: string;
           p_amount?: number | string;
           f_amount?: number | string;
+          cash_as_of?: string;
+          cash_amount?: number | string;
           notes?: string;
           updated_by?: string | null;
           updated_at?: string;
@@ -465,6 +471,14 @@ export type Database = {
       cash_flow_report: {
         Args: { p_from: string; p_to: string };
         Returns: Json;
+      };
+      ipv_line_defaults: {
+        Args: { p_ipv_id: string; p_product_id: string };
+        Returns: Json;
+      };
+      seed_ipv_lines: {
+        Args: { p_ipv_id: string };
+        Returns: undefined;
       };
     };
     Enums: {

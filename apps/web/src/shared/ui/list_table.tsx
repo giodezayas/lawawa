@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { defaultBillingPeriod, formatDateOnly, shiftCalendarMonth } from '@wawa/domain';
 import { TextField } from './text_field';
 
 export function DateRangeFields({
@@ -8,6 +9,7 @@ export function DateRangeFields({
   to,
   onFrom,
   onTo,
+  onRange,
 }: {
   fromId: string;
   toId: string;
@@ -15,17 +17,57 @@ export function DateRangeFields({
   to: string;
   onFrom: (value: string) => void;
   onTo: (value: string) => void;
+  onRange?: (from: string, to: string) => void;
 }) {
+  function apply(next: { from: string; to: string }) {
+    if (onRange) {
+      onRange(next.from, next.to);
+      return;
+    }
+    onFrom(next.from);
+    onTo(next.to);
+  }
+
+  const anchor = from || to || undefined;
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <TextField
-        id={fromId}
-        label="Desde"
-        type="date"
-        value={from}
-        onChange={(event) => onFrom(event.target.value)}
-      />
-      <TextField id={toId} label="Hasta" type="date" value={to} onChange={(event) => onTo(event.target.value)} />
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold"
+          onClick={() => apply(shiftCalendarMonth(anchor ?? defaultBillingPeriod().from, -1))}
+        >
+          Anterior
+        </button>
+        <p className="text-sm font-semibold">
+          {from && to ? `${formatDateOnly(from)} — ${formatDateOnly(to)}` : 'Mes En Curso'}
+        </p>
+        <button
+          type="button"
+          className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold"
+          onClick={() => apply(shiftCalendarMonth(anchor ?? defaultBillingPeriod().from, 1))}
+        >
+          Siguiente
+        </button>
+        <button
+          type="button"
+          className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold"
+          onClick={() => apply(defaultBillingPeriod())}
+        >
+          Este Mes
+        </button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField
+          id={fromId}
+          label="Desde"
+          type="date"
+          value={from}
+          onChange={(event) => onFrom(event.target.value)}
+        />
+        <TextField id={toId} label="Hasta" type="date" value={to} onChange={(event) => onTo(event.target.value)} />
+      </div>
     </div>
   );
 }

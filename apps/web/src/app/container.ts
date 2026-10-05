@@ -58,6 +58,7 @@ import {
   UpdateUserUseCase,
   UpsertCardOpeningUseCase,
   UpsertIpvLineUseCase,
+  GetIpvLineDefaultsUseCase,
 } from '@wawa/domain';
 
 export type AppContainer = {
@@ -88,6 +89,7 @@ export type AppContainer = {
   getIpv: GetIpvUseCase;
   createIpv: CreateIpvUseCase;
   upsertIpvLine: UpsertIpvLineUseCase;
+  getIpvLineDefaults: GetIpvLineDefaultsUseCase;
   removeIpvLine: RemoveIpvLineUseCase;
   closeIpv: CloseIpvUseCase;
   updateIpvCollections: UpdateIpvCollectionsUseCase;
@@ -165,6 +167,7 @@ export function createAppContainer(): AppContainer {
     getIpv: new GetIpvUseCase(ipvRepository),
     createIpv: new CreateIpvUseCase(ipvRepository),
     upsertIpvLine: new UpsertIpvLineUseCase(ipvRepository),
+    getIpvLineDefaults: new GetIpvLineDefaultsUseCase(ipvRepository),
     removeIpvLine: new RemoveIpvLineUseCase(ipvRepository),
     closeIpv: new CloseIpvUseCase(ipvRepository),
     updateIpvCollections: new UpdateIpvCollectionsUseCase(ipvRepository),

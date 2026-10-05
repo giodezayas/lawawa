@@ -29,6 +29,9 @@ export function mapCashFlow(payload: Json): CashFlow {
     transferToCash: asNumber(row.transfer_to_cash),
     cashToTransfer: asNumber(row.cash_to_transfer),
     ipvSalary: asNumber(row.ipv_salary),
+    ipvSetAside: asNumber(row.ipv_set_aside),
+    cashOpening: asNumber(row.cash_opening),
+    cashOpeningOn: typeof row.cash_opening_on === 'string' ? row.cash_opening_on : null,
     firstSaleOn: typeof row.first_sale_on === 'string' ? row.first_sale_on : null,
   });
 }

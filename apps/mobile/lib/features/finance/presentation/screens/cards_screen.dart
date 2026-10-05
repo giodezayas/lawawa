@@ -21,11 +21,13 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
   final _notes = TextEditingController();
   final _openingP = TextEditingController();
   final _openingF = TextEditingController();
+  final _openingCash = TextEditingController(text: '47030');
   var _from = isoDate();
   var _to = isoDate();
   var _moveDate = isoDate();
   var _openingDate = isoDate();
-  ({String asOf, double pAmount, double fAmount})? _opening;
+  var _cashOpeningDate = '2026-10-04';
+  ({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})? _opening;
   var _card = 'p';
   var _kind = 'transfer_to_cash';
   CardBalances? _ledger;
@@ -47,6 +49,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
     _notes.dispose();
     _openingP.dispose();
     _openingF.dispose();
+    _openingCash.dispose();
     super.dispose();
   }
 
@@ -88,6 +91,8 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
           _openingDate = opening.asOf;
           _openingP.text = opening.pAmount.toString();
           _openingF.text = opening.fAmount.toString();
+          _cashOpeningDate = opening.cashAsOf;
+          _openingCash.text = opening.cashAmount.toString();
         }
         _moves = moves.where((move) => move.occurredOn.compareTo(_from) >= 0 && move.occurredOn.compareTo(_to) <= 0).toList();
         _ledger = CardBalances.from(ipvs, moves, _from, _to, opening);
@@ -118,6 +123,8 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
         asOf: _openingDate,
         pAmount: parseMoney(_openingP.text),
         fAmount: parseMoney(_openingF.text),
+        cashAsOf: _cashOpeningDate,
+        cashAmount: parseMoney(_openingCash.text),
         updatedBy: auth.user.id,
       );
       await _load();
@@ -247,6 +254,30 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
             LabeledField(label: 'Tarjeta P *', controller: _openingP, keyboardType: TextInputType.number),
             const SizedBox(height: 8),
             LabeledField(label: 'Tarjeta F *', controller: _openingF, keyboardType: TextInputType.number),
+            const SizedBox(height: 16),
+            const Text('Efectivo En Caja', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            const Text(
+              'Lo de antes de esta fecha no cuenta. El importe es lo que había en el cajón ese día, ya aparte ganancia, gastos e impuesto.',
+              style: TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Caja Desde *'),
+              subtitle: Text(formatDateOnly(_cashOpeningDate)),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.parse('${_cashOpeningDate}T00:00:00'),
+                  firstDate: DateTime(2024),
+                  lastDate: DateTime(2032),
+                );
+                if (picked != null) {
+                  setState(() => _cashOpeningDate = isoDate(picked));
+                }
+              },
+            ),
+            LabeledField(label: 'Efectivo *', controller: _openingCash, keyboardType: TextInputType.number),
             const SizedBox(height: 12),
             PrimaryButton(label: 'Guardar Saldo Inicial', loading: _savingOpening, onPressed: _saveOpening),
             const SizedBox(height: 16),

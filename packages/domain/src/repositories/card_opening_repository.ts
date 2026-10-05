@@ -4,6 +4,8 @@ export type UpsertCardOpeningInput = {
   asOf: string;
   pAmount: number;
   fAmount: number;
+  cashAsOf: string;
+  cashAmount: number;
   notes: string;
   updatedBy: string;
 };

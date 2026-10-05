@@ -1,6 +1,17 @@
 import { DomainError, InventoryErrorCodes } from '../errors/domain_error';
 import type { IpvLine } from '../entities/ipv';
-import type { IpvRepository } from '../repositories/ipv_repository';
+import type { IpvLineDefaults, IpvRepository } from '../repositories/ipv_repository';
+
+export class GetIpvLineDefaultsUseCase {
+  constructor(private readonly ipvRepository: IpvRepository) {}
+
+  execute(ipvId: string, productId: string): Promise<IpvLineDefaults> {
+    if (!ipvId || !productId) {
+      throw new DomainError('Elige un producto del catálogo.', InventoryErrorCodes.invalidInput);
+    }
+    return this.ipvRepository.lineDefaults(ipvId, productId);
+  }
+}
 
 export class UpsertIpvLineUseCase {
   constructor(private readonly ipvRepository: IpvRepository) {}
@@ -19,7 +30,7 @@ export class UpsertIpvLineUseCase {
     inboundAddsStock: boolean;
     sortOrder: number;
   }): Promise<IpvLine> {
-    if (!input.productId || input.productName.trim().length === 0) {
+    if (!input.productId) {
       throw new DomainError('Elige un producto del catálogo.', InventoryErrorCodes.invalidInput);
     }
 

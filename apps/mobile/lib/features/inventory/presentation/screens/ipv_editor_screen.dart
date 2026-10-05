@@ -326,7 +326,7 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
           Text(
             cash < 0
                 ? 'La transferencia supera la venta.'
-                : 'Venta ${formatMoney(doc.saleTotal)} · Recaudado ${formatMoney(collected)} · Efectivo Luego Del Salario ${formatMoney(cash - ipvDailySalary)}',
+                : 'Venta ${formatMoney(doc.saleTotal)} · Recaudado ${formatMoney(collected)} · Efectivo Luego Del Salario ${formatMoney(cash - ipvDailySalary)} · Queda En Caja ${formatMoney(cash - doc.grossProfit)}',
             style: TextStyle(color: cash < 0 ? AppColors.danger : AppColors.muted),
           ),
           if (!_locked) ...[
@@ -344,7 +344,7 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
                   )
                   .map((product) => DropdownMenuItem(value: product.id, child: Text(product.name)))
                   .toList(),
-              onChanged: (id) {
+              onChanged: (id) async {
                 ProductRow? product;
                 for (final item in _products) {
                   if (item.id == id) {
@@ -363,12 +363,33 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
                     }
                   }
                 });
+                final current = _doc;
+                if (product != null && current != null) {
+                  try {
+                    final defaults = await ref.read(wawaClientProvider).ipvLineDefaults(current.id, product.id);
+                    if (!mounted || _selectedId != product.id) {
+                      return;
+                    }
+                    setState(() {
+                      _opening.text = defaults.openingQty.toString();
+                      _salePrice.text = defaults.salePrice.toString();
+                      _cost.text = defaults.replenishmentCost.toString();
+                    });
+                  } catch (_) {}
+                }
               },
             ),
-            LabeledField(label: 'Inicio De Turno', controller: _opening, keyboardType: TextInputType.number),
             LabeledField(label: 'Entradas', controller: _inbound, keyboardType: TextInputType.number),
             LabeledField(label: 'Salidas', controller: _outbound, keyboardType: TextInputType.number),
             LabeledField(label: 'Vendidos', controller: _sold, keyboardType: TextInputType.number),
+            if (_selectedId != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Inicio ${_opening.text} · Precio ${formatMoney(parseMoney(_salePrice.text))} · Costo ${formatMoney(parseMoney(_cost.text))}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+              ),
             if (_products.any((product) => product.id == _selectedId && product.name == 'Azúcar Por Libras'))
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
@@ -377,8 +398,6 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
                   style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ),
-            LabeledField(label: 'Precio De Venta', controller: _salePrice, keyboardType: TextInputType.number),
-            LabeledField(label: 'Costo De Reposición', controller: _cost, keyboardType: TextInputType.number),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('La Entrada Suma Stock'),

@@ -36,34 +36,40 @@ class IpvLineTableRow extends StatefulWidget {
 }
 
 class _IpvLineTableRowState extends State<IpvLineTableRow> {
-  late final TextEditingController _opening;
   late final TextEditingController _inbound;
   late final TextEditingController _outbound;
   late final TextEditingController _sold;
-  late final TextEditingController _salePrice;
-  late final TextEditingController _cost;
   late bool _addsStock;
 
   @override
   void initState() {
     super.initState();
-    _opening = TextEditingController(text: widget.line.openingQty.toString());
     _inbound = TextEditingController(text: widget.line.inboundQty.toString());
     _outbound = TextEditingController(text: widget.line.outboundQty.toString());
     _sold = TextEditingController(text: widget.line.soldQty.toString());
-    _salePrice = TextEditingController(text: widget.line.salePrice.toString());
-    _cost = TextEditingController(text: widget.line.replenishmentCost.toString());
     _addsStock = widget.line.inboundAddsStock;
+    _inbound.addListener(_refresh);
+    _outbound.addListener(_refresh);
+    _sold.addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
-    _opening.dispose();
-    _inbound.dispose();
-    _outbound.dispose();
-    _sold.dispose();
-    _salePrice.dispose();
-    _cost.dispose();
+    _inbound
+      ..removeListener(_refresh)
+      ..dispose();
+    _outbound
+      ..removeListener(_refresh)
+      ..dispose();
+    _sold
+      ..removeListener(_refresh)
+      ..dispose();
     super.dispose();
   }
 
@@ -78,6 +84,12 @@ class _IpvLineTableRowState extends State<IpvLineTableRow> {
   @override
   Widget build(BuildContext context) {
     final line = widget.line;
+    final inbound = parseMoney(_inbound.text);
+    final outbound = parseMoney(_outbound.text);
+    final sold = parseMoney(_sold.text);
+    final closing = line.openingQty + inbound - outbound - sold;
+    final saleTotal = sold * line.salePrice;
+    final profit = sold * (line.salePrice - line.replenishmentCost);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Table(
@@ -100,26 +112,28 @@ class _IpvLineTableRowState extends State<IpvLineTableRow> {
                   children: [
                     Text(line.productName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
                     Text(
-                      '${formatMoney(line.saleTotal)} · ${formatMoney(line.grossProfit)}',
-                      style: TextStyle(color: moneyColor(line.grossProfit), fontSize: 10),
+                      '${formatMoney(saleTotal)} · ${formatMoney(profit)}',
+                      style: TextStyle(color: moneyColor(profit), fontSize: 10),
+                    ),
+                    Text(
+                      'Inicio ${line.openingQty} · ${formatMoney(line.salePrice)} · Costo ${formatMoney(line.replenishmentCost)}',
+                      style: const TextStyle(color: AppColors.muted, fontSize: 10),
                     ),
                   ],
                 ),
               ),
-              _qty(_opening, 'Inicio'),
               _qty(_inbound, 'Ent.'),
               _qty(_outbound, 'Sal.'),
               _qty(_sold, 'Vend.'),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                child: Text('Final ${line.closingQty}', style: const TextStyle(fontSize: 11)),
+                child: Text('Final $closing', style: const TextStyle(fontSize: 11)),
               ),
+              const SizedBox.shrink(),
             ],
           ),
           TableRow(
             children: [
-              _qty(_salePrice, 'P. Venta'),
-              _qty(_cost, 'Costo'),
               Align(
                 alignment: Alignment.centerLeft,
                 child: widget.locked
@@ -136,12 +150,12 @@ class _IpvLineTableRowState extends State<IpvLineTableRow> {
                   onPressed: widget.saving || widget.removing
                       ? null
                       : () => widget.onSave(
-                            openingQty: parseMoney(_opening.text),
-                            inboundQty: parseMoney(_inbound.text),
-                            outboundQty: parseMoney(_outbound.text),
-                            soldQty: parseMoney(_sold.text),
-                            salePrice: parseMoney(_salePrice.text),
-                            replenishmentCost: parseMoney(_cost.text),
+                            openingQty: line.openingQty,
+                            inboundQty: inbound,
+                            outboundQty: outbound,
+                            soldQty: sold,
+                            salePrice: line.salePrice,
+                            replenishmentCost: line.replenishmentCost,
                             inboundAddsStock: _addsStock,
                           ),
                   child: Text(widget.saving ? 'Guardando...' : 'Guardar'),
@@ -156,6 +170,8 @@ class _IpvLineTableRowState extends State<IpvLineTableRow> {
                     style: const TextStyle(color: AppColors.danger),
                   ),
                 ),
+              const SizedBox.shrink(),
+              const SizedBox.shrink(),
               const SizedBox.shrink(),
             ],
           ),

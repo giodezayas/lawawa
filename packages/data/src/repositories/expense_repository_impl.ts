@@ -8,6 +8,7 @@ import {
   type UpdateExpenseEntryInput,
   defaultBillingPeriod,
   isLiveCurrentMonth,
+  resolveBillingPeriod,
 } from '@wawa/domain';
 import { mapExpenseEntry } from '../mappers/expense_mapper';
 import { mapPeriodReport } from '../mappers/period_report_mapper';
@@ -125,7 +126,6 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
   }
 
   async getBillingPeriod() {
-    const fallback = defaultBillingPeriod();
     const { data, error } = await this.client
       .from('business_settings')
       .select('billing_period_from, billing_period_to, billing_period_live')
@@ -134,15 +134,11 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
     if (error) {
       throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
     }
-    if (data?.billing_period_live !== false) {
-      return fallback;
-    }
-    const from = data?.billing_period_from;
-    const to = data?.billing_period_to;
-    if (typeof from === 'string' && typeof to === 'string' && to >= from) {
-      return { from, to };
-    }
-    return fallback;
+    return resolveBillingPeriod({
+      from: data?.billing_period_from,
+      to: data?.billing_period_to,
+      live: data?.billing_period_live,
+    });
   }
 
   async setBillingPeriod(from: string, to: string) {

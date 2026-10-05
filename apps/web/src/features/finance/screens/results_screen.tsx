@@ -3,6 +3,7 @@ import {
   FIXED_TAX_RATE,
   PeriodReport,
   User,
+  defaultBillingPeriod,
   formatDateOnly,
   formatMoney,
   shiftCalendarMonth,
@@ -84,7 +85,7 @@ export function ResultsScreen() {
         <div>
           <h1 className="text-2xl font-extrabold">Resultados</h1>
           <p className="mt-1 text-sm text-muted">
-            El rango se define en Inicio. Impuesto fijo {taxPercent}% sobre utilidad positiva.
+            El rango por defecto es el día 1 de este mes hasta hoy. Impuesto fijo {taxPercent}% sobre utilidad positiva.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -125,6 +126,17 @@ export function ResultsScreen() {
         </p>
         <button type="button" className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold" onClick={() => shift(1)}>
           Siguiente
+        </button>
+        <button
+          type="button"
+          className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold"
+          onClick={() => {
+            const live = defaultBillingPeriod();
+            setFrom(live.from);
+            setTo(live.to);
+          }}
+        >
+          Este Mes
         </button>
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}

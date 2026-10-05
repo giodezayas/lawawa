@@ -86,6 +86,8 @@ export function CardsScreen() {
   const [openingDate, setOpeningDate] = useState(todayIsoDate());
   const [openingP, setOpeningP] = useState('');
   const [openingF, setOpeningF] = useState('');
+  const [cashOpeningDate, setCashOpeningDate] = useState('2026-10-04');
+  const [cashOpeningAmount, setCashOpeningAmount] = useState('47030');
   const [savingOpening, setSavingOpening] = useState(false);
   const [moves, setMoves] = useState<CashMoveProps[]>([]);
   const [moveCard, setMoveCard] = useState<TransferCard>('p');
@@ -115,6 +117,8 @@ export function CardsScreen() {
         setOpeningDate(nextOpening.asOf);
         setOpeningP(String(nextOpening.pAmount));
         setOpeningF(String(nextOpening.fAmount));
+        setCashOpeningDate(nextOpening.cashAsOf);
+        setCashOpeningAmount(String(nextOpening.cashAmount));
       }
       setMoves(nextMoves.filter((move) => move.occurredOn >= period.from && move.occurredOn <= period.to));
       setLedger(CardLedger.from(ipvs, nextMoves, period.from, period.to, nextOpening));
@@ -148,6 +152,8 @@ export function CardsScreen() {
         asOf: openingDate,
         pAmount: toMoneyNumber(openingP),
         fAmount: toMoneyNumber(openingF),
+        cashAsOf: cashOpeningDate,
+        cashAmount: toMoneyNumber(cashOpeningAmount),
         notes: '',
         updatedBy: user.id,
       });
@@ -257,6 +263,25 @@ export function CardsScreen() {
                 inputMode="decimal"
                 value={openingF}
                 onChange={(event) => setOpeningF(event.target.value)}
+              />
+            </div>
+            <h3 className="text-sm font-semibold text-primary">Efectivo En Caja</h3>
+            <p className="text-sm text-muted">
+              Lo de antes de esta fecha no cuenta. El importe es lo que había en el cajón ese día, ya aparte ganancia,
+              gastos e impuesto. Los IPV del día siguiente en adelante sí mueven caja.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField
+                label="Caja Desde *"
+                type="date"
+                value={cashOpeningDate}
+                onChange={(event) => setCashOpeningDate(event.target.value)}
+              />
+              <TextField
+                label="Efectivo *"
+                inputMode="decimal"
+                value={cashOpeningAmount}
+                onChange={(event) => setCashOpeningAmount(event.target.value)}
               />
             </div>
             <PrimaryButton type="button" loading={savingOpening} onClick={() => void saveOpening()}>

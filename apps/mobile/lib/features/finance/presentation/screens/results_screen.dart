@@ -86,7 +86,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
       children: [
         const Text('Resultados', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
         const Text(
-          'El rango se define en Inicio. Impuesto fijo 25% sobre utilidad positiva.',
+          'Por defecto es el día 1 de este mes hasta hoy.',
           style: TextStyle(color: AppColors.muted),
         ),
         const SizedBox(height: 12),
@@ -121,6 +121,17 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                 _load();
               },
               child: const Text('Siguiente'),
+            ),
+            TextButton(
+              onPressed: () {
+                final live = defaultBillingPeriod();
+                setState(() {
+                  _from = live.from;
+                  _to = live.to;
+                });
+                _load();
+              },
+              child: const Text('Este Mes'),
             ),
           ],
         ),

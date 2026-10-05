@@ -44,7 +44,7 @@ export type {
   CreatePurchaseLineInput,
   UpdatePurchaseInput,
 } from './repositories/purchase_repository';
-export type { IpvRepository, CreateIpvInput, UpsertIpvLineInput } from './repositories/ipv_repository';
+export type { IpvRepository, CreateIpvInput, UpsertIpvLineInput, IpvLineDefaults } from './repositories/ipv_repository';
 export type { CashMoveRepository, CreateCashMoveInput } from './repositories/cash_move_repository';
 export type { CardOpeningRepository, UpsertCardOpeningInput } from './repositories/card_opening_repository';
 export type {
@@ -73,7 +73,7 @@ export { DeleteProductUseCase } from './usecases/delete_product';
 export { ListIpvsUseCase } from './usecases/list_ipvs';
 export { GetIpvUseCase } from './usecases/get_ipv';
 export { CreateIpvUseCase } from './usecases/create_ipv';
-export { UpsertIpvLineUseCase } from './usecases/upsert_ipv_line';
+export { UpsertIpvLineUseCase, GetIpvLineDefaultsUseCase } from './usecases/upsert_ipv_line';
 export { RemoveIpvLineUseCase } from './usecases/remove_ipv_line';
 export { CloseIpvUseCase } from './usecases/close_ipv';
 export { UpdateIpvCollectionsUseCase, GetCashFlowUseCase } from './usecases/ipv_cash';
@@ -111,6 +111,7 @@ export {
   isBillingRange,
   defaultBillingPeriod,
   isLiveCurrentMonth,
+  resolveBillingPeriod,
   shiftCalendarMonth,
   previousCalendarMonth,
   shiftBillingRange,

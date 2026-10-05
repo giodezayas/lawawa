@@ -83,9 +83,19 @@ String endOfMonth([String? iso]) {
   return shiftCalendarMonth(startOfMonth(), -1);
 }
 
-bool isLiveCurrentMonth(String from, String to) {
-  final live = defaultBillingPeriod();
-  return from == live.from && to == live.to;
+bool isLiveCurrentMonth(String from, [String? to]) {
+  return from == defaultBillingPeriod().from;
+}
+
+({String from, String to}) resolveBillingPeriod({String? from, String? to, bool? live}) {
+  final livePeriod = defaultBillingPeriod();
+  if (live != false || from == livePeriod.from) {
+    return livePeriod;
+  }
+  if (from != null && to != null && to.compareTo(from) >= 0) {
+    return (from: from, to: to);
+  }
+  return livePeriod;
 }
 
 ({String from, String to}) shiftBillingRange(String from, String to, int direction) {

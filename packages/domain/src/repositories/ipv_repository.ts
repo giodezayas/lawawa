@@ -21,10 +21,18 @@ export type UpsertIpvLineInput = {
   sortOrder: number;
 };
 
+export type IpvLineDefaults = {
+  openingQty: number;
+  salePrice: number;
+  replenishmentCost: number;
+  productName: string;
+};
+
 export interface IpvRepository {
   list(): Promise<IpvDocument[]>;
   getById(id: string): Promise<IpvDocument | null>;
   create(input: CreateIpvInput): Promise<IpvDocument>;
+  lineDefaults(ipvId: string, productId: string): Promise<IpvLineDefaults>;
   upsertLine(input: UpsertIpvLineInput): Promise<IpvLine>;
   removeLine(lineId: string): Promise<void>;
   close(id: string, closedBy: string): Promise<IpvDocument>;

@@ -22,6 +22,8 @@ export class CardOpeningRepositoryImpl implements CardOpeningRepository {
           as_of: input.asOf,
           p_amount: input.pAmount,
           f_amount: input.fAmount,
+          cash_as_of: input.cashAsOf,
+          cash_amount: input.cashAmount,
           notes: input.notes,
           updated_by: input.updatedBy,
           updated_at: new Date().toISOString(),

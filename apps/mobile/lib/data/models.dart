@@ -300,6 +300,9 @@ class CashFlow {
     this.transferToCash = 0,
     this.cashToTransfer = 0,
     this.ipvSalary = 0,
+    this.ipvSetAside = 0,
+    this.cashOpening = 0,
+    this.cashOpeningOn,
     this.firstSaleOn,
   });
 
@@ -314,6 +317,9 @@ class CashFlow {
   final double transferToCash;
   final double cashToTransfer;
   final double ipvSalary;
+  final double ipvSetAside;
+  final double cashOpening;
+  final String? cashOpeningOn;
   final String? firstSaleOn;
 
   double get cashNet => cashIn - cashOut;
@@ -369,7 +375,7 @@ class CardBalances {
     List<CashMoveRow> moves,
     String from,
     String to,
-    ({String asOf, double pAmount, double fAmount})? opening,
+    ({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})? opening,
   ) {
     if (opening == null) {
       return const CardBalances(
