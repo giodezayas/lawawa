@@ -16,6 +16,7 @@ import { ExpenseListScreen } from '../features/finance/screens/expense_list_scre
 import { ResultsScreen } from '../features/finance/screens/results_screen';
 import { ReportsScreen } from '../features/finance/screens/reports_screen';
 import { CardsScreen } from '../features/finance/screens/cards_screen';
+import { TaxesScreen } from '../features/finance/screens/taxes_screen';
 import { LoadingState } from '../shared/ui/loading_state';
 
 function GuestRoute() {
@@ -75,6 +76,7 @@ const router = createBrowserRouter([
           { path: '/finanzas/gastos', element: <ExpenseListScreen /> },
           { path: '/finanzas/gastos/nuevo', element: <ExpenseEditorScreen /> },
           { path: '/finanzas/gastos/:expenseId', element: <ExpenseEditorScreen /> },
+          { path: '/finanzas/impuestos', element: <TaxesScreen /> },
         ],
       },
     ],

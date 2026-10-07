@@ -6,7 +6,6 @@ import {
   IPV_DAILY_SALARY,
   ipvDayCut,
   otherExpensesOnDate,
-  taxableGrossProfit,
   formatDateOnly,
   formatMoney,
   todayIsoDate,
@@ -201,11 +200,11 @@ export function IpvEditorScreen() {
   const dayCut = useMemo(
     () =>
       ipvDayCut({
+        saleTotal: totals.saleTotal,
         grossProfit: totals.profit,
-        taxableGrossProfit: taxableGrossProfit(document?.lines ?? [], products),
         otherExpenses: otherExpensesOnDate(dayExpenses, document?.workDate ?? ''),
       }),
-    [totals.profit, document, products, dayExpenses],
+    [totals.saleTotal, totals.profit, document, dayExpenses],
   );
 
   const preview = IpvLine.compute({
@@ -530,7 +529,12 @@ export function IpvEditorScreen() {
           <article className="rounded-3xl border border-line bg-white px-5 py-4">
             <p className="text-sm font-medium text-primary">Impuesto A Reservar</p>
             <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(dayCut.tax)}</p>
-            <p className="mt-1 text-right text-xs text-muted">25% De Lo Que Tributa, Menos Gastos</p>
+            <p className="mt-1 text-right text-xs text-muted">
+              10% De La Venta (0114022) {formatMoney(dayCut.tribute0114022)}
+            </p>
+            <p className="mt-1 text-right text-xs text-muted">
+              5% Menos $ 3,260.00 (0510122) {formatMoney(dayCut.tribute0510122)}
+            </p>
           </article>
           <article className="rounded-3xl border border-line bg-white px-5 py-4">
             <p className="text-sm font-medium text-primary">Neta Del Día</p>

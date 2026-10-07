@@ -184,7 +184,7 @@ export function ProductDetailScreen() {
           <input type="checkbox" checked={countsForTax} onChange={(event) => setCountsForTax(event.target.checked)} />
           <span>
             <span className="block">Cuenta Para Impuestos</span>
-            <span className="mt-0.5 block text-muted">Si está apagado, su ganancia no entra al 25%.</span>
+            <span className="mt-0.5 block text-muted">El impuesto ahora se calcula sobre la venta, no sobre esta ganancia.</span>
           </span>
         </label>
         <div className="md:col-span-2">

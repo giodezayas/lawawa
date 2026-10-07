@@ -1,6 +1,6 @@
 import { endOfMonth } from '../shared/date';
-import { FIXED_TAX_RATE } from './period_report';
 import { IPV_DAILY_SALARY } from './ipv';
+import { saleTaxes } from './tax';
 
 export const IPV_OWNER_COUNT = 2;
 
@@ -11,6 +11,8 @@ export type IpvDayCut = {
   readonly otherExpenses: number;
   readonly expenseTotal: number;
   readonly tax: number;
+  readonly tribute0114022: number;
+  readonly tribute0510122: number;
   readonly utilidad: number;
   readonly net: number;
   readonly ownerShare: number;
@@ -21,8 +23,9 @@ function roundMoney(value: number): number {
 }
 
 export function ipvDayCut(input: {
+  saleTotal: number;
   grossProfit: number;
-  taxableGrossProfit: number;
+  taxableGrossProfit?: number;
   salary?: number;
   otherExpenses?: number;
 }): IpvDayCut {
@@ -30,15 +33,17 @@ export function ipvDayCut(input: {
   const otherExpenses = input.otherExpenses ?? 0;
   const expenseTotal = roundMoney(salary + otherExpenses);
   const utilidad = roundMoney(input.grossProfit - expenseTotal);
-  const tax = roundMoney(Math.max(input.taxableGrossProfit - expenseTotal, 0) * FIXED_TAX_RATE);
-  const net = roundMoney(utilidad - tax);
+  const taxes = saleTaxes(input.saleTotal);
+  const net = roundMoney(utilidad - taxes.total);
   return {
     grossProfit: roundMoney(input.grossProfit),
-    taxableGrossProfit: roundMoney(input.taxableGrossProfit),
+    taxableGrossProfit: roundMoney(input.taxableGrossProfit ?? 0),
     salary,
     otherExpenses: roundMoney(otherExpenses),
     expenseTotal,
-    tax,
+    tax: taxes.total,
+    tribute0114022: taxes.tribute0114022,
+    tribute0510122: taxes.tribute0510122,
     utilidad,
     net,
     ownerShare: roundMoney(net / IPV_OWNER_COUNT),

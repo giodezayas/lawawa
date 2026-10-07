@@ -133,7 +133,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Cuenta Para Impuestos'),
-            subtitle: const Text('Si está apagado, su ganancia no entra al 25%.'),
+            subtitle: const Text('El impuesto ahora se calcula sobre la venta, no sobre esta ganancia.'),
             value: _countsForTax,
             onChanged: (value) => setState(() => _countsForTax = value),
           ),

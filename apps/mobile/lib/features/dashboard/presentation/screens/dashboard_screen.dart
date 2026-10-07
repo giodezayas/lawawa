@@ -21,6 +21,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   PeriodReport? _period;
   IpvDoc? _lastIpv;
+  List<ExpenseRow> _expenses = [];
   ({double cash, double transfer}) _periodRecaudo = (cash: 0, transfer: 0);
   CardBalances? _cards;
   List<ProductRow> _lowStock = [];
@@ -61,6 +62,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       setState(() {
         _period = report;
         _lastIpv = _latestIpv(ipvs);
+        _expenses = expenses;
         _periodRecaudo = _cajaInRange(ipvs, purchases, expenses, period.from, period.to, opening);
         _cards = CardBalances.from(ipvs, moves, period.from, period.to, opening);
         _lowStock = products.where((product) => product.isLowStock).toList();
@@ -134,6 +136,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
     final period = _period;
     final lastIpv = _lastIpv;
+    final lastCut = lastIpv == null
+        ? null
+        : IpvDayCut.compute(
+            saleTotal: lastIpv.saleTotal,
+            grossProfit: lastIpv.grossProfit,
+            otherExpenses: otherExpensesOnDate(_expenses, lastIpv.workDate),
+          );
     final auth = ref.watch(authControllerProvider);
     final canManage = auth is AuthAuthenticated && auth.user.canManageStaff;
     return RefreshIndicator(
@@ -186,6 +195,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           StatCard(label: 'Estado', value: ipvTodayLabel(lastIpv?.status ?? '')),
+          if (lastCut != null) ...[
+            const SizedBox(height: 8),
+            StatCard(label: 'Salario', value: formatMoney(lastCut.salary), tone: AppColors.danger),
+            const SizedBox(height: 8),
+            StatCard(label: 'Gastos', value: formatMoney(lastCut.otherExpenses), tone: AppColors.danger),
+            const SizedBox(height: 8),
+            StatCard(label: 'Impuesto', value: formatMoney(lastCut.tax), tone: AppColors.danger),
+            Text(
+              '10% De La Venta (0114022) ${formatMoney(lastCut.tribute0114022)}',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            Text(
+              '5% Menos \$ 3,260.00 (0510122) ${formatMoney(lastCut.tribute0510122)}',
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            StatCard(label: 'Ganancia Neta', value: formatMoney(lastCut.net), tone: moneyColor(lastCut.net)),
+            const SizedBox(height: 8),
+            StatCard(label: 'Cada Dueño', value: formatMoney(lastCut.ownerShare), tone: moneyColor(lastCut.ownerShare)),
+          ],
           const SizedBox(height: 20),
           RecaudoCards(
             title: 'Última Caja',
@@ -229,7 +258,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           if (period != null) ...[
             const SizedBox(height: 20),
             Text(
-              'Este Período · ${formatDateOnly(period.from)} — ${formatDateOnly(period.to)} · Impuesto 25%',
+              'Este Período · ${formatDateOnly(period.from)} — ${formatDateOnly(period.to)}',
               style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),

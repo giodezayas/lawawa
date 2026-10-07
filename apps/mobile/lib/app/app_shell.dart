@@ -8,6 +8,7 @@ import '../features/finance/presentation/screens/cards_screen.dart';
 import '../features/finance/presentation/screens/expense_list_screen.dart';
 import '../features/finance/presentation/screens/reports_screen.dart';
 import '../features/finance/presentation/screens/results_screen.dart';
+import '../features/finance/presentation/screens/taxes_screen.dart';
 import '../features/inventory/presentation/screens/ipv_list_screen.dart';
 import '../features/inventory/presentation/screens/products_screen.dart';
 import '../features/inventory/presentation/screens/purchase_list_screen.dart';
@@ -121,6 +122,13 @@ class _AppShellState extends ConsumerState<AppShell> {
               onTap: () {
                 Navigator.pop(context);
                 setState(() => _index = 2);
+              },
+            ),
+            ListTile(
+              title: const Text('Impuestos'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TaxesScreen()));
               },
             ),
             if (canManage) ...[

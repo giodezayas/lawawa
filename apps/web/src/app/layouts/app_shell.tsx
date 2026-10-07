@@ -1,4 +1,4 @@
-import { BarChart3, Boxes, CreditCard, LayoutDashboard, LogOut, Menu, Package, Receipt, ShoppingCart, Users, Wallet, X } from 'lucide-react';
+import { BarChart3, Boxes, CreditCard, Landmark, LayoutDashboard, LogOut, Menu, Package, Receipt, ShoppingCart, Users, Wallet, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { User } from '@wawa/domain';
@@ -45,6 +45,10 @@ function AppNav({ canManageStaff, onNavigate }: { canManageStaff: boolean; onNav
       <NavLink to="/finanzas/gastos" className={navClass} onClick={onNavigate}>
         <Receipt size={18} />
         Gastos
+      </NavLink>
+      <NavLink to="/finanzas/impuestos" className={navClass} onClick={onNavigate}>
+        <Landmark size={18} />
+        Impuestos
       </NavLink>
       {canManageStaff ? (
         <>

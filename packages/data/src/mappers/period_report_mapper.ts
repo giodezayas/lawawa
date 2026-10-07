@@ -1,4 +1,4 @@
-import { PeriodReport, type PeriodLineProps } from '@wawa/domain';
+import { PeriodReport, applyPeriodTaxes, type PeriodLineProps } from '@wawa/domain';
 import type { Json } from '../supabase/database.types';
 
 function asRecord(value: Json): Record<string, Json | undefined> {
@@ -29,7 +29,7 @@ export function mapPeriodReport(payload: Json): PeriodReport {
     };
   });
 
-  return PeriodReport.create({
+  const report = PeriodReport.create({
     from: asString(row.from),
     to: asString(row.to),
     days: asNumber(row.days),
@@ -45,4 +45,5 @@ export function mapPeriodReport(payload: Json): PeriodReport {
     closed: Boolean(row.closed),
     lines,
   });
+  return PeriodReport.create(applyPeriodTaxes(report));
 }

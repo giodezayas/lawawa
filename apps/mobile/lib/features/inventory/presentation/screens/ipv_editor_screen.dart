@@ -280,8 +280,8 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
     final cash = ((doc.saleTotal - parseMoney(_transferP.text) - parseMoney(_transferF.text)) * 100).round() / 100;
     final collected = cash + parseMoney(_transferP.text) + parseMoney(_transferF.text);
     final cut = IpvDayCut.compute(
+      saleTotal: doc.saleTotal,
       grossProfit: doc.grossProfit,
-      taxableGrossProfit: taxableGrossForLines(doc.lines, _products),
       otherExpenses: otherExpensesOnDate(_expenses, doc.workDate),
     );
     return Scaffold(
@@ -308,6 +308,15 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
           StatCard(label: 'Gastos A Reservar', value: formatMoney(cut.otherExpenses), tone: AppColors.danger),
           const SizedBox(height: 8),
           StatCard(label: 'Impuesto A Reservar', value: formatMoney(cut.tax), tone: AppColors.danger),
+          const SizedBox(height: 4),
+          Text(
+            '10% De La Venta (0114022) ${formatMoney(cut.tribute0114022)}',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+          Text(
+            '5% Menos \$ 3,260.00 (0510122) ${formatMoney(cut.tribute0510122)}',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
           const SizedBox(height: 8),
           StatCard(label: 'Neta Del Día', value: formatMoney(cut.net), tone: moneyColor(cut.net)),
           const SizedBox(height: 8),

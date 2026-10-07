@@ -1,18 +1,20 @@
 import {
   DomainError,
-  FIXED_TAX_RATE,
   User,
   CardLedger,
   IpvDocument,
   PeriodReport,
   Product,
+  ipvDayCut,
+  otherExpensesOnDate,
   formatDateOnly,
   formatMoney,
   defaultBillingPeriod,
   previousCalendarMonth,
   todayIsoDate,
+  type ExpenseEntry,
 } from '@wawa/domain';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { RecaudoSummary } from '../../../shared/ui/cash_flow_summary';
@@ -24,6 +26,7 @@ export function DashboardScreen() {
   const { container, user } = useAuth();
   const [month, setMonth] = useState<PeriodReport | null>(null);
   const [lastIpv, setLastIpv] = useState<IpvDocument | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [periodRecaudo, setPeriodRecaudo] = useState({ cash: 0, transfer: 0 });
   const [cards, setCards] = useState<ReturnType<typeof CardLedger.from> | null>(null);
   const [lowStock, setLowStock] = useState<Product[]>([]);
@@ -49,6 +52,7 @@ export function DashboardScreen() {
     const moveFrom = opening && opening.asOf < period.from ? opening.asOf : period.from;
     const moves = opening ? await container.listCashMoves.execute(moveFrom, ledgerTo) : [];
     setLowStock(products.filter((product) => Product.isLowStock(product)));
+    setExpenses(expenses);
     setMonth(monthReport);
     setLastIpv(IpvDocument.latest(ipvs));
     setPeriodRecaudo(IpvDocument.cajaInRange(ipvs, purchases, expenses, period.from, period.to, opening));
@@ -80,7 +84,16 @@ export function DashboardScreen() {
     await savePeriod(period.from, period.to);
   }
 
-  const taxPercent = Math.round(FIXED_TAX_RATE * 100);
+  const lastCut = useMemo(() => {
+    if (!lastIpv) {
+      return null;
+    }
+    return ipvDayCut({
+      saleTotal: IpvDocument.saleTotal(lastIpv),
+      grossProfit: IpvDocument.grossProfit(lastIpv),
+      otherExpenses: otherExpensesOnDate(expenses, lastIpv.workDate),
+    });
+  }, [lastIpv, expenses]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -162,6 +175,40 @@ export function DashboardScreen() {
                 <p className="mt-1 text-2xl font-extrabold">{lastIpv ? IpvDocument.statusLabel(lastIpv.status) : 'Sin IPV'}</p>
               </article>
             </div>
+            {lastCut ? (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Salario</p>
+                  <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(lastCut.salary)}</p>
+                </article>
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Gastos</p>
+                  <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(lastCut.otherExpenses)}</p>
+                </article>
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Impuesto</p>
+                  <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(lastCut.tax)}</p>
+                  <p className="mt-1 text-right text-xs text-muted">
+                    10% De La Venta (0114022) {formatMoney(lastCut.tribute0114022)}
+                  </p>
+                  <p className="mt-1 text-right text-xs text-muted">
+                    5% Menos $ 3,260.00 (0510122) {formatMoney(lastCut.tribute0510122)}
+                  </p>
+                </article>
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Ganancia Neta</p>
+                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastCut.net)}`}>
+                    {formatMoney(lastCut.net)}
+                  </p>
+                </article>
+                <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Cada Dueño</p>
+                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastCut.ownerShare)}`}>
+                    {formatMoney(lastCut.ownerShare)}
+                  </p>
+                </article>
+              </div>
+            ) : null}
           </section>
           <RecaudoSummary
             title="Última Caja"
@@ -208,7 +255,7 @@ export function DashboardScreen() {
           {month ? (
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-primary">
-                Este Período{month ? ` · ${formatDateOnly(month.from)} — ${formatDateOnly(month.to)}` : ''} · Impuesto {taxPercent}%
+                Este Período{month ? ` · ${formatDateOnly(month.from)} — ${formatDateOnly(month.to)}` : ''}
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
@@ -222,6 +269,9 @@ export function DashboardScreen() {
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Impuestos A Pagar</p>
                   <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(month.tax)}</p>
+                  <Link to="/finanzas/impuestos" className="mt-2 block text-right text-xs font-semibold text-primary">
+                    Ver Desglose
+                  </Link>
                 </article>
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Te Quedas</p>

@@ -1,6 +1,5 @@
 import {
   DomainError,
-  FIXED_TAX_RATE,
   PeriodReport,
   User,
   defaultBillingPeriod,
@@ -25,7 +24,6 @@ export function ResultsScreen() {
   const [pageError, setPageError] = useState('');
   const [closing, setClosing] = useState(false);
 
-  const taxPercent = Math.round(FIXED_TAX_RATE * 100);
   const canManage = user ? User.canManageStaff(user) : false;
 
   async function load(nextFrom = from, nextTo = to) {
@@ -104,7 +102,7 @@ export function ResultsScreen() {
         <div>
           <h1 className="text-2xl font-extrabold">Resultados</h1>
           <p className="mt-1 text-sm text-muted">
-            El rango por defecto es el día 1 de este mes hasta hoy. Impuesto fijo {taxPercent}% sobre utilidad positiva.
+            El rango por defecto es el día 1 de este mes hasta hoy.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -117,10 +115,9 @@ export function ResultsScreen() {
                 ['Venta', formatMoney(report.saleTotal)],
                 ['Invertido', formatMoney(report.purchaseTotal)],
                 [`Ganancia Bruta`, formatMoney(report.grossProfit)],
-                ['Ganancia Que Tributa', formatMoney(report.taxableGrossProfit)],
                 ['Gastos', formatMoney(report.expenseTotal)],
                 ['Utilidad', formatMoney(report.utilidad)],
-                [`Impuesto ${taxPercent}%`, formatMoney(report.tax)],
+                ['Impuestos A Pagar', formatMoney(report.tax)],
                 ['Te Quedas', formatMoney(report.net)],
                 ...report.lines.map((line) => [line.name, formatMoney(line.amount)]),
               ]}
@@ -228,9 +225,13 @@ export function ResultsScreen() {
             </div>
           </section>
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-primary">Impuesto Y Lo Que Te Quedas</h2>
-            <p className="text-sm text-muted">El 25% se calcula sobre la ganancia de productos que tributan, menos gastos.</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h2 className="text-sm font-semibold text-primary">Impuesto Y Lo Que Te Quedas</h2>
+              <Link to="/finanzas/impuestos" className="text-sm font-semibold text-primary">
+                Ver Impuestos
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Utilidad</p>
                 <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(report.utilidad)}`}>
@@ -238,11 +239,7 @@ export function ResultsScreen() {
                 </p>
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                <p className="text-sm font-medium text-muted">Ganancia Que Tributa</p>
-                <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(report.taxableGrossProfit)}</p>
-              </article>
-              <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                <p className="text-sm font-medium text-muted">Impuesto {taxPercent}%</p>
+                <p className="text-sm font-medium text-muted">Impuestos A Pagar</p>
                 <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(report.tax)}</p>
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">

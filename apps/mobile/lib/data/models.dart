@@ -153,6 +153,8 @@ class IpvDayCut {
     required this.otherExpenses,
     required this.expenseTotal,
     required this.tax,
+    required this.tribute0114022,
+    required this.tribute0510122,
     required this.utilidad,
     required this.net,
     required this.ownerShare,
@@ -164,28 +166,32 @@ class IpvDayCut {
   final double otherExpenses;
   final double expenseTotal;
   final double tax;
+  final double tribute0114022;
+  final double tribute0510122;
   final double utilidad;
   final double net;
   final double ownerShare;
 
   static IpvDayCut compute({
+    required double saleTotal,
     required double grossProfit,
-    required double taxableGrossProfit,
+    double taxableGrossProfit = 0,
     double salary = 1500,
     double otherExpenses = 0,
   }) {
     final expenseTotal = _money(salary + otherExpenses);
     final utilidad = _money(grossProfit - expenseTotal);
-    final taxBase = taxableGrossProfit - expenseTotal;
-    final tax = _money((taxBase > 0 ? taxBase : 0) * 0.25);
-    final net = _money(utilidad - tax);
+    final taxes = saleTaxes(saleTotal);
+    final net = _money(utilidad - taxes.total);
     return IpvDayCut(
       grossProfit: _money(grossProfit),
       taxableGrossProfit: _money(taxableGrossProfit),
       salary: salary,
       otherExpenses: _money(otherExpenses),
       expenseTotal: expenseTotal,
-      tax: tax,
+      tax: taxes.total,
+      tribute0114022: taxes.tribute0114022,
+      tribute0510122: taxes.tribute0510122,
       utilidad: utilidad,
       net: net,
       ownerShare: _money(net / 2),
@@ -195,6 +201,41 @@ class IpvDayCut {
 
 double _money(double value) {
   return (value * 100).round() / 100;
+}
+
+const declaredMonthlySalary = 7000.0;
+const saleTax0510122Exempt = 3260.0;
+const salaryTax0520522Exempt = 3740.0;
+
+({double tribute0114022, double tribute0510122, double total}) saleTaxes(double saleTotal) {
+  final tribute0114022 = _money((saleTotal > 0 ? saleTotal : 0) * 0.1);
+  final base0510 = saleTotal - saleTax0510122Exempt;
+  final tribute0510122 = _money((base0510 > 0 ? base0510 : 0) * 0.05);
+  return (
+    tribute0114022: tribute0114022,
+    tribute0510122: tribute0510122,
+    total: _money(tribute0114022 + tribute0510122),
+  );
+}
+
+({double declaredSalary, double tribute0810132, double tribute0820232, double tribute0520522, double total}) salaryTaxes() {
+  final tribute0810132 = _money(declaredMonthlySalary * 0.125);
+  final tribute0820232 = _money(declaredMonthlySalary * 0.05);
+  final base0520 = declaredMonthlySalary - salaryTax0520522Exempt;
+  final tribute0520522 = _money((base0520 > 0 ? base0520 : 0) * 0.03);
+  return (
+    declaredSalary: declaredMonthlySalary,
+    tribute0810132: tribute0810132,
+    tribute0820232: tribute0820232,
+    tribute0520522: tribute0520522,
+    total: _money(tribute0810132 + tribute0820232 + tribute0520522),
+  );
+}
+
+({double total}) periodTaxes(double saleTotal) {
+  final sale = saleTaxes(saleTotal);
+  final salary = salaryTaxes();
+  return (total: _money(sale.total + salary.total));
 }
 
 double otherExpensesOnDate(List<ExpenseRow> entries, String workDate) {

@@ -1,5 +1,3 @@
-export const FIXED_TAX_RATE = 0.25;
-
 export type PeriodLineProps = {
   readonly categoryId: string;
   readonly name: string;

@@ -121,17 +121,20 @@ class WawaClient {
           purchaseTotal += asNum(line['qty']) * asNum(line['unit_cost']);
         }
       }
+      final saleTotal = asNum(row['sale_total']);
+      final utilidad = asNum(row['utilidad']);
+      final tax = periodTaxes(saleTotal).total;
       return PeriodReport(
         from: '${row['from']}',
         to: '${row['to']}',
-        saleTotal: asNum(row['sale_total']),
+        saleTotal: saleTotal,
         purchaseTotal: (purchaseTotal * 100).round() / 100,
         grossProfit: asNum(row['gross_profit']),
         taxableGrossProfit: asNum(row['taxable_gross_profit']),
         expenseTotal: asNum(row['expense_total']),
-        utilidad: asNum(row['utilidad']),
-        tax: asNum(row['tax']),
-        net: asNum(row['net']),
+        utilidad: utilidad,
+        tax: tax,
+        net: ((utilidad - tax) * 100).round() / 100,
         closed: row['closed'] == true,
         lines: rawLines.map((item) {
           final line = Map<String, dynamic>.from(item as Map);

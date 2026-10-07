@@ -22,8 +22,23 @@ export { CardLedger } from './entities/card_ledger';
 export type { CardSlice } from './entities/card_ledger';
 export { CardOpening } from './entities/card_opening';
 export type { CardOpeningProps } from './entities/card_opening';
-export { PeriodReport, FIXED_TAX_RATE } from './entities/period_report';
+export { PeriodReport } from './entities/period_report';
 export type { PeriodReportProps, PeriodLineProps } from './entities/period_report';
+export {
+  saleTaxes,
+  salaryTaxes,
+  periodTaxes,
+  applyPeriodTaxes,
+  SALE_TAX_0114022_RATE,
+  SALE_TAX_0510122_RATE,
+  SALE_TAX_0510122_EXEMPT,
+  DECLARED_MONTHLY_SALARY,
+  SALARY_TAX_0810132_RATE,
+  SALARY_TAX_0820232_RATE,
+  SALARY_TAX_0520522_RATE,
+  SALARY_TAX_0520522_EXEMPT,
+} from './entities/tax';
+export type { SaleTaxBreakdown, SalaryTaxBreakdown, PeriodTaxBreakdown } from './entities/tax';
 export { SalesInsight } from './entities/sales_stats';
 export type { ProductSalesRow, DaySalesRow } from './entities/sales_stats';
 export type { AuthRepository, AuthStateListener, Unsubscribe } from './repositories/auth_repository';
