@@ -280,7 +280,6 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
     final cash = ((doc.saleTotal - parseMoney(_transferP.text) - parseMoney(_transferF.text)) * 100).round() / 100;
     final collected = cash + parseMoney(_transferP.text) + parseMoney(_transferF.text);
     final cut = IpvDayCut.compute(
-      saleTotal: doc.saleTotal,
       grossProfit: doc.grossProfit,
       otherExpenses: otherExpensesOnDate(_expenses, doc.workDate),
     );
@@ -294,12 +293,16 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
           if (_lineNotice.isNotEmpty) Text(_lineNotice, style: const TextStyle(color: AppColors.primary)),
           StatCard(label: 'Total De Venta', value: formatMoney(doc.saleTotal)),
           const SizedBox(height: 8),
-          StatCard(label: 'Ganancia Bruta', value: formatMoney(doc.grossProfit), tone: moneyColor(doc.grossProfit)),
+          StatCard(label: 'Ganancia Bruta', value: formatMoney(cut.utilidad), tone: moneyColor(cut.utilidad)),
+          const Text(
+            'Después De Salario Y Gastos. Sin Impuesto.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
           const SizedBox(height: 16),
           const Text('Si Cobramos Hoy', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           const Text(
-            'Salario, la parte del día de los gastos (también los mensuales) e impuesto a reservar. Lo que queda se parte a la mitad entre los dos dueños.',
+            'Salario y la parte del día de los gastos. Lo que queda son ganancias brutas. El impuesto se declara al cierre del mes.',
             style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
           const SizedBox(height: 8),
@@ -307,18 +310,11 @@ class _IpvEditorScreenState extends ConsumerState<IpvEditorScreen> {
           const SizedBox(height: 8),
           StatCard(label: 'Gastos A Reservar', value: formatMoney(cut.otherExpenses), tone: AppColors.danger),
           const SizedBox(height: 8),
-          StatCard(label: 'Impuesto A Reservar', value: formatMoney(cut.tax), tone: AppColors.danger),
-          const SizedBox(height: 4),
-          Text(
-            '10% De La Venta (0114022) ${formatMoney(cut.tribute0114022)}',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          StatCard(label: 'Ganancias Brutas', value: formatMoney(cut.utilidad), tone: moneyColor(cut.utilidad)),
+          const Text(
+            'Después De Salario Y Gastos. Sin Impuesto.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
-          Text(
-            '5% Menos \$ 3,260.00 (0510122) ${formatMoney(cut.tribute0510122)}',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          StatCard(label: 'Neta Del Día', value: formatMoney(cut.net), tone: moneyColor(cut.net)),
           const SizedBox(height: 8),
           StatCard(label: 'Cada Dueño', value: formatMoney(cut.ownerShare), tone: moneyColor(cut.ownerShare)),
           const SizedBox(height: 16),

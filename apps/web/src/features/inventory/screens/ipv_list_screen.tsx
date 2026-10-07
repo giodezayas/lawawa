@@ -1,4 +1,13 @@
-import { DomainError, IpvDocument, User, formatDateOnly, formatMoney } from '@wawa/domain';
+import {
+  DomainError,
+  IpvDocument,
+  User,
+  formatDateOnly,
+  formatMoney,
+  ipvDayCut,
+  otherExpensesOnDate,
+  type ExpenseEntry,
+} from '@wawa/domain';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
@@ -14,6 +23,7 @@ export function IpvListScreen() {
   const canEditClosed = user ? User.canManageStaff(user) : false;
   const confirm = useConfirm();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof container.listIpvs.execute>>>([]);
+  const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [pageError, setPageError] = useState('');
   const [loading, setLoading] = useState(true);
   const [fromDate, setFromDate] = useState('');
@@ -25,8 +35,13 @@ export function IpvListScreen() {
   async function load() {
     setLoading(true);
     try {
-      const period = await container.getBillingPeriod.execute();
-      setRows(await container.listIpvs.execute());
+      const [period, ipvs, expenseRows] = await Promise.all([
+        container.getBillingPeriod.execute(),
+        container.listIpvs.execute(),
+        container.listExpenseEntries.execute(),
+      ]);
+      setRows(ipvs);
+      setExpenses(expenseRows);
       setFromDate(period.from);
       setToDate(period.to);
     } finally {
@@ -69,6 +84,28 @@ export function IpvListScreen() {
     });
   }, [filtered, sortKey, sortAsc]);
 
+  function grossAfterCosts(document: IpvDocument) {
+    return ipvDayCut({
+      grossProfit: IpvDocument.grossProfit(document),
+      otherExpenses: otherExpensesOnDate(expenses, document.workDate),
+    }).utilidad;
+  }
+
+  const summary = useMemo(() => {
+    return sorted.reduce(
+      (acc, document) => {
+        if (document.lines.length === 0) {
+          return acc;
+        }
+        return {
+          sale: acc.sale + IpvDocument.saleTotal(document),
+          profit: acc.profit + grossAfterCosts(document),
+        };
+      },
+      { sale: 0, profit: 0 },
+    );
+  }, [sorted, expenses]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortAsc((value) => !value);
@@ -99,7 +136,7 @@ export function IpvListScreen() {
               formatMoney(document.cashCollected),
               formatMoney(document.transferPCollected),
               formatMoney(document.transferFCollected),
-              document.lines.length > 0 ? formatMoney(IpvDocument.grossProfit(document)) : '',
+              document.lines.length > 0 ? formatMoney(grossAfterCosts(document)) : '',
             ])}
             disabled={loading || sorted.length === 0}
           />
@@ -123,6 +160,21 @@ export function IpvListScreen() {
       <p className="text-sm text-muted">
         {loading ? 'Cargando IPV...' : `${sorted.length} IPV En El Rango`}
       </p>
+      {!loading && sorted.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <article className="rounded-3xl border border-line bg-white px-5 py-4">
+            <p className="text-sm font-medium text-muted">Venta Del Rango</p>
+            <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(summary.sale)}</p>
+          </article>
+          <article className="rounded-3xl border border-line bg-white px-5 py-4">
+            <p className="text-sm font-medium text-muted">Ganancia Bruta</p>
+            <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(summary.profit)}`}>
+              {formatMoney(summary.profit)}
+            </p>
+            <p className="mt-1 text-right text-xs text-muted">Después De Salario Y Gastos. Sin Impuesto.</p>
+          </article>
+        </div>
+      ) : null}
       <div className="max-h-[32rem] overflow-y-auto overflow-x-hidden rounded-3xl border border-line bg-surface">
         <table className="w-full table-fixed text-sm">
           <thead className="sticky top-0 z-10 bg-surface">
@@ -141,7 +193,7 @@ export function IpvListScreen() {
               <th className="w-[12%] px-2 py-3 text-right font-semibold">Efectivo</th>
               <th className="w-[11%] px-2 py-3 text-right font-semibold">Tarjeta P</th>
               <th className="w-[11%] px-2 py-3 text-right font-semibold">Tarjeta F</th>
-              <th className="w-[13%] px-2 py-3 text-right font-semibold">Ganancia</th>
+              <th className="w-[13%] px-2 py-3 text-right font-semibold">Ganancia Bruta</th>
               <th className="w-[18%] px-2 py-3" />
             </tr>
           </thead>
@@ -157,7 +209,7 @@ export function IpvListScreen() {
             ) : (
               sorted.map((document) => {
                 const saleTotal = IpvDocument.saleTotal(document);
-                const profit = IpvDocument.grossProfit(document);
+                const profit = grossAfterCosts(document);
                 return (
                   <tr key={document.id} className="border-t border-line">
                     <td className="truncate px-2 py-3">{formatDateOnly(document.workDate)}</td>

@@ -152,9 +152,6 @@ class IpvDayCut {
     required this.salary,
     required this.otherExpenses,
     required this.expenseTotal,
-    required this.tax,
-    required this.tribute0114022,
-    required this.tribute0510122,
     required this.utilidad,
     required this.net,
     required this.ownerShare,
@@ -165,15 +162,11 @@ class IpvDayCut {
   final double salary;
   final double otherExpenses;
   final double expenseTotal;
-  final double tax;
-  final double tribute0114022;
-  final double tribute0510122;
   final double utilidad;
   final double net;
   final double ownerShare;
 
   static IpvDayCut compute({
-    required double saleTotal,
     required double grossProfit,
     double taxableGrossProfit = 0,
     double salary = 1500,
@@ -181,20 +174,15 @@ class IpvDayCut {
   }) {
     final expenseTotal = _money(salary + otherExpenses);
     final utilidad = _money(grossProfit - expenseTotal);
-    final taxes = saleTaxes(saleTotal);
-    final net = _money(utilidad - taxes.total);
     return IpvDayCut(
       grossProfit: _money(grossProfit),
       taxableGrossProfit: _money(taxableGrossProfit),
       salary: salary,
       otherExpenses: _money(otherExpenses),
       expenseTotal: expenseTotal,
-      tax: taxes.total,
-      tribute0114022: taxes.tribute0114022,
-      tribute0510122: taxes.tribute0510122,
       utilidad: utilidad,
-      net: net,
-      ownerShare: _money(net / 2),
+      net: utilidad,
+      ownerShare: _money(utilidad / 2),
     );
   }
 }
@@ -258,6 +246,9 @@ double otherExpensesOnDate(List<ExpenseRow> entries, String workDate) {
     } else if (entry.cadence == 'weekly') {
       sum += entry.amount / 7;
     } else if (entry.cadence == 'monthly') {
+      if (start.substring(0, 7) != workDate.substring(0, 7)) {
+        continue;
+      }
       sum += entry.amount / monthDays;
     } else if (start == workDate) {
       sum += entry.amount;

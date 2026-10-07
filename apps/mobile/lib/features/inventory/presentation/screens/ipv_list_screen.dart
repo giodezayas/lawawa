@@ -19,6 +19,7 @@ class IpvListScreen extends ConsumerStatefulWidget {
 
 class _IpvListScreenState extends ConsumerState<IpvListScreen> {
   List<IpvDoc> _rows = [];
+  List<ExpenseRow> _expenses = [];
   var _from = '';
   var _to = '';
   var _error = '';
@@ -45,6 +46,7 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
       final api = ref.read(wawaClientProvider);
       final period = await api.billingPeriod();
       final rows = await api.ipvs();
+      final expenses = await api.expenses();
       if (!mounted) {
         return;
       }
@@ -52,6 +54,7 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
         _from = period.from;
         _to = period.to;
         _rows = rows;
+        _expenses = expenses;
         _loading = false;
       });
     } catch (error) {
@@ -148,6 +151,47 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
             },
           ),
           ErrorBanner(_error),
+          if (!_loading && filtered.isNotEmpty) ...[
+            StatCard(
+              label: 'Venta Del Rango',
+              value: formatMoney(
+                filtered.fold<double>(0, (sum, doc) => sum + (doc.lines.isEmpty ? 0 : doc.saleTotal)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            StatCard(
+              label: 'Ganancia Bruta',
+              value: formatMoney(
+                filtered.fold<double>(0, (sum, doc) {
+                  if (doc.lines.isEmpty) {
+                    return sum;
+                  }
+                  return sum +
+                      IpvDayCut.compute(
+                        grossProfit: doc.grossProfit,
+                        otherExpenses: otherExpensesOnDate(_expenses, doc.workDate),
+                      ).utilidad;
+                }),
+              ),
+              tone: moneyColor(
+                filtered.fold<double>(0, (sum, doc) {
+                  if (doc.lines.isEmpty) {
+                    return sum;
+                  }
+                  return sum +
+                      IpvDayCut.compute(
+                        grossProfit: doc.grossProfit,
+                        otherExpenses: otherExpensesOnDate(_expenses, doc.workDate),
+                      ).utilidad;
+                }),
+              ),
+            ),
+            const Text(
+              'Después De Salario Y Gastos. Sin Impuesto.',
+              style: TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (_loading) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
           if (!_loading)
             Table(
@@ -170,7 +214,7 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
                     _H('Efectivo', align: TextAlign.right),
                     _H('P', align: TextAlign.right),
                     _H('F', align: TextAlign.right),
-                    _H('Gan.', align: TextAlign.right),
+                    _H('Gan. Bruta', align: TextAlign.right),
                     _H(''),
                   ],
                 ),
@@ -191,7 +235,11 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
                   ),
                 ...filtered.map((doc) {
                   final sale = doc.lines.isEmpty ? '—' : formatMoney(doc.saleTotal);
-                  final profit = doc.lines.isEmpty ? '—' : formatMoney(doc.grossProfit);
+                  final profitValue = IpvDayCut.compute(
+                    grossProfit: doc.grossProfit,
+                    otherExpenses: otherExpensesOnDate(_expenses, doc.workDate),
+                  ).utilidad;
+                  final profit = doc.lines.isEmpty ? '—' : formatMoney(profitValue);
                   return TableRow(
                     children: [
                       _C(formatDateOnly(doc.workDate)),
@@ -203,7 +251,7 @@ class _IpvListScreenState extends ConsumerState<IpvListScreen> {
                       _C(
                         profit,
                         align: TextAlign.right,
-                        color: doc.lines.isEmpty ? null : moneyColor(doc.grossProfit),
+                        color: doc.lines.isEmpty ? null : moneyColor(profitValue),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),

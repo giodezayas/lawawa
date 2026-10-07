@@ -114,9 +114,8 @@ export function ResultsScreen() {
               rows={[
                 ['Venta', formatMoney(report.saleTotal)],
                 ['Invertido', formatMoney(report.purchaseTotal)],
-                [`Ganancia Bruta`, formatMoney(report.grossProfit)],
+                ['Ganancia Bruta', formatMoney(report.utilidad)],
                 ['Gastos', formatMoney(report.expenseTotal)],
-                ['Utilidad', formatMoney(report.utilidad)],
                 ['Impuestos A Pagar', formatMoney(report.tax)],
                 ['Te Quedas', formatMoney(report.net)],
                 ...report.lines.map((line) => [line.name, formatMoney(line.amount)]),
@@ -172,9 +171,10 @@ export function ResultsScreen() {
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Ganancia Bruta</p>
-                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(report.grossProfit)}`}>
-                  {formatMoney(report.grossProfit)}
+                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(report.utilidad)}`}>
+                  {formatMoney(report.utilidad)}
                 </p>
+                <p className="mt-1 text-right text-xs text-muted">Después De Salario Y Gastos. Sin Impuesto.</p>
               </article>
             </div>
           </section>
@@ -232,12 +232,6 @@ export function ResultsScreen() {
               </Link>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                <p className="text-sm font-medium text-muted">Utilidad</p>
-                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(report.utilidad)}`}>
-                  {formatMoney(report.utilidad)}
-                </p>
-              </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Impuestos A Pagar</p>
                 <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(report.tax)}</p>

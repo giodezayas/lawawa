@@ -200,11 +200,10 @@ export function IpvEditorScreen() {
   const dayCut = useMemo(
     () =>
       ipvDayCut({
-        saleTotal: totals.saleTotal,
         grossProfit: totals.profit,
         otherExpenses: otherExpensesOnDate(dayExpenses, document?.workDate ?? ''),
       }),
-    [totals.saleTotal, totals.profit, document, dayExpenses],
+    [totals.profit, document, dayExpenses],
   );
 
   const preview = IpvLine.compute({
@@ -502,18 +501,18 @@ export function IpvEditorScreen() {
         </article>
         <article className="rounded-3xl border border-line bg-white px-5 py-4">
           <p className="text-sm font-medium text-primary">Ganancia Bruta</p>
-          <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(totals.profit)}`}>
-            {formatMoney(totals.profit)}
+          <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(dayCut.utilidad)}`}>
+            {formatMoney(dayCut.utilidad)}
           </p>
-          <p className="mt-1 text-right text-xs text-muted">Costo De Lo Vendido {formatMoney(totals.cost)}</p>
+          <p className="mt-1 text-right text-xs text-muted">Después De Salario Y Gastos. Sin Impuesto.</p>
         </article>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-primary">Si Cobramos Hoy</h2>
         <p className="text-sm text-muted">
-          Salario, la parte del día de los gastos (también los mensuales) e impuesto a reservar. Lo que queda se
-          parte a la mitad entre los dos dueños.
+          Salario y la parte del día de los gastos. Lo que queda son ganancias brutas, a medias entre los dos dueños.
+          El impuesto se declara al cierre del mes en Finanzas.
         </p>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <article className="rounded-3xl border border-line bg-white px-5 py-4">
@@ -527,28 +526,18 @@ export function IpvEditorScreen() {
             <p className="mt-1 text-right text-xs text-muted">Hoy, Semanales Y Mensuales Prorrateados</p>
           </article>
           <article className="rounded-3xl border border-line bg-white px-5 py-4">
-            <p className="text-sm font-medium text-primary">Impuesto A Reservar</p>
-            <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(dayCut.tax)}</p>
-            <p className="mt-1 text-right text-xs text-muted">
-              10% De La Venta (0114022) {formatMoney(dayCut.tribute0114022)}
+            <p className="text-sm font-medium text-primary">Ganancias Brutas</p>
+            <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(dayCut.utilidad)}`}>
+              {formatMoney(dayCut.utilidad)}
             </p>
-            <p className="mt-1 text-right text-xs text-muted">
-              5% Menos $ 3,260.00 (0510122) {formatMoney(dayCut.tribute0510122)}
-            </p>
-          </article>
-          <article className="rounded-3xl border border-line bg-white px-5 py-4">
-            <p className="text-sm font-medium text-primary">Neta Del Día</p>
-            <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(dayCut.net)}`}>
-              {formatMoney(dayCut.net)}
-            </p>
-            <p className="mt-1 text-right text-xs text-muted">Ganancia Menos Salario, Gastos E Impuesto</p>
+            <p className="mt-1 text-right text-xs text-muted">Después De Salario Y Gastos. Sin Impuesto.</p>
           </article>
           <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
             <p className="text-sm font-medium text-primary">Cada Dueño</p>
             <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(dayCut.ownerShare)}`}>
               {formatMoney(dayCut.ownerShare)}
             </p>
-            <p className="mt-1 text-right text-xs text-muted">Mitad De La Neta</p>
+            <p className="mt-1 text-right text-xs text-muted">Mitad De Las Ganancias Brutas</p>
           </article>
         </div>
       </section>

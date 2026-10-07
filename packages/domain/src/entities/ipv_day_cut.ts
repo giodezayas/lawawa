@@ -1,6 +1,5 @@
 import { endOfMonth } from '../shared/date';
 import { IPV_DAILY_SALARY } from './ipv';
-import { saleTaxes } from './tax';
 
 export const IPV_OWNER_COUNT = 2;
 
@@ -10,9 +9,6 @@ export type IpvDayCut = {
   readonly salary: number;
   readonly otherExpenses: number;
   readonly expenseTotal: number;
-  readonly tax: number;
-  readonly tribute0114022: number;
-  readonly tribute0510122: number;
   readonly utilidad: number;
   readonly net: number;
   readonly ownerShare: number;
@@ -23,7 +19,6 @@ function roundMoney(value: number): number {
 }
 
 export function ipvDayCut(input: {
-  saleTotal: number;
   grossProfit: number;
   taxableGrossProfit?: number;
   salary?: number;
@@ -33,20 +28,15 @@ export function ipvDayCut(input: {
   const otherExpenses = input.otherExpenses ?? 0;
   const expenseTotal = roundMoney(salary + otherExpenses);
   const utilidad = roundMoney(input.grossProfit - expenseTotal);
-  const taxes = saleTaxes(input.saleTotal);
-  const net = roundMoney(utilidad - taxes.total);
   return {
     grossProfit: roundMoney(input.grossProfit),
     taxableGrossProfit: roundMoney(input.taxableGrossProfit ?? 0),
     salary,
     otherExpenses: roundMoney(otherExpenses),
     expenseTotal,
-    tax: taxes.total,
-    tribute0114022: taxes.tribute0114022,
-    tribute0510122: taxes.tribute0510122,
     utilidad,
-    net,
-    ownerShare: roundMoney(net / IPV_OWNER_COUNT),
+    net: utilidad,
+    ownerShare: roundMoney(utilidad / IPV_OWNER_COUNT),
   };
 }
 
@@ -87,6 +77,9 @@ export function otherExpensesOnDate(
         return sum + entry.amount / 7;
       }
       if (entry.cadence === 'monthly') {
+        if (start.slice(0, 7) !== workDate.slice(0, 7)) {
+          return sum;
+        }
         return sum + entry.amount / monthDays;
       }
       return start === workDate ? sum + entry.amount : sum;

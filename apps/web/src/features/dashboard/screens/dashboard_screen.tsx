@@ -89,7 +89,6 @@ export function DashboardScreen() {
       return null;
     }
     return ipvDayCut({
-      saleTotal: IpvDocument.saleTotal(lastIpv),
       grossProfit: IpvDocument.grossProfit(lastIpv),
       otherExpenses: otherExpensesOnDate(expenses, lastIpv.workDate),
     });
@@ -166,9 +165,10 @@ export function DashboardScreen() {
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Ganancia Bruta</p>
-                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastIpv ? IpvDocument.grossProfit(lastIpv) : 0)}`}>
-                  {formatMoney(lastIpv ? IpvDocument.grossProfit(lastIpv) : 0)}
+                <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastCut?.utilidad ?? 0)}`}>
+                  {formatMoney(lastCut?.utilidad ?? 0)}
                 </p>
+                <p className="mt-1 text-right text-xs text-muted">Después De Salario Y Gastos. Sin Impuesto.</p>
               </article>
               <article className="rounded-3xl border border-line bg-white px-5 py-4">
                 <p className="text-sm font-medium text-muted">Estado</p>
@@ -186,26 +186,18 @@ export function DashboardScreen() {
                   <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(lastCut.otherExpenses)}</p>
                 </article>
                 <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                  <p className="text-sm font-medium text-muted">Impuesto</p>
-                  <p className="mt-1 text-right text-2xl font-extrabold text-danger">{formatMoney(lastCut.tax)}</p>
-                  <p className="mt-1 text-right text-xs text-muted">
-                    10% De La Venta (0114022) {formatMoney(lastCut.tribute0114022)}
+                  <p className="text-sm font-medium text-muted">Ganancias Brutas</p>
+                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastCut.utilidad)}`}>
+                    {formatMoney(lastCut.utilidad)}
                   </p>
-                  <p className="mt-1 text-right text-xs text-muted">
-                    5% Menos $ 3,260.00 (0510122) {formatMoney(lastCut.tribute0510122)}
-                  </p>
-                </article>
-                <article className="rounded-3xl border border-line bg-white px-5 py-4">
-                  <p className="text-sm font-medium text-muted">Ganancia Neta</p>
-                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastCut.net)}`}>
-                    {formatMoney(lastCut.net)}
-                  </p>
+                  <p className="mt-1 text-right text-xs text-muted">Después De Salario Y Gastos. Sin Impuesto.</p>
                 </article>
                 <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
                   <p className="text-sm font-medium text-muted">Cada Dueño</p>
                   <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(lastCut.ownerShare)}`}>
                     {formatMoney(lastCut.ownerShare)}
                   </p>
+                  <p className="mt-1 text-right text-xs text-muted">Mitad De Las Ganancias Brutas</p>
                 </article>
               </div>
             ) : null}

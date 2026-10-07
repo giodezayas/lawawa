@@ -139,7 +139,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final lastCut = lastIpv == null
         ? null
         : IpvDayCut.compute(
-            saleTotal: lastIpv.saleTotal,
             grossProfit: lastIpv.grossProfit,
             otherExpenses: otherExpensesOnDate(_expenses, lastIpv.workDate),
           );
@@ -190,8 +189,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 8),
           StatCard(
             label: 'Ganancia Bruta',
-            value: formatMoney(lastIpv?.grossProfit ?? 0),
-            tone: moneyColor(lastIpv?.grossProfit ?? 0),
+            value: formatMoney(lastCut?.utilidad ?? 0),
+            tone: moneyColor(lastCut?.utilidad ?? 0),
+          ),
+          const Text(
+            'Después De Salario Y Gastos. Sin Impuesto.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
           const SizedBox(height: 8),
           StatCard(label: 'Estado', value: ipvTodayLabel(lastIpv?.status ?? '')),
@@ -201,17 +204,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(height: 8),
             StatCard(label: 'Gastos', value: formatMoney(lastCut.otherExpenses), tone: AppColors.danger),
             const SizedBox(height: 8),
-            StatCard(label: 'Impuesto', value: formatMoney(lastCut.tax), tone: AppColors.danger),
-            Text(
-              '10% De La Venta (0114022) ${formatMoney(lastCut.tribute0114022)}',
-              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            StatCard(label: 'Ganancias Brutas', value: formatMoney(lastCut.utilidad), tone: moneyColor(lastCut.utilidad)),
+            const Text(
+              'Después De Salario Y Gastos. Sin Impuesto.',
+              style: TextStyle(color: AppColors.muted, fontSize: 12),
             ),
-            Text(
-              '5% Menos \$ 3,260.00 (0510122) ${formatMoney(lastCut.tribute0510122)}',
-              style: const TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            StatCard(label: 'Ganancia Neta', value: formatMoney(lastCut.net), tone: moneyColor(lastCut.net)),
             const SizedBox(height: 8),
             StatCard(label: 'Cada Dueño', value: formatMoney(lastCut.ownerShare), tone: moneyColor(lastCut.ownerShare)),
           ],
