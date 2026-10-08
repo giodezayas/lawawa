@@ -77,9 +77,6 @@ export function otherExpensesOnDate(
         return sum + entry.amount / 7;
       }
       if (entry.cadence === 'monthly') {
-        if (start.slice(0, 7) !== workDate.slice(0, 7)) {
-          return sum;
-        }
         return sum + entry.amount / monthDays;
       }
       return start === workDate ? sum + entry.amount : sum;

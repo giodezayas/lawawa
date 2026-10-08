@@ -246,9 +246,6 @@ double otherExpensesOnDate(List<ExpenseRow> entries, String workDate) {
     } else if (entry.cadence == 'weekly') {
       sum += entry.amount / 7;
     } else if (entry.cadence == 'monthly') {
-      if (start.substring(0, 7) != workDate.substring(0, 7)) {
-        continue;
-      }
       sum += entry.amount / monthDays;
     } else if (start == workDate) {
       sum += entry.amount;
