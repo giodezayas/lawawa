@@ -365,13 +365,27 @@ class WawaClient {
     });
   }
 
+  Future<List<Map<String, dynamic>>> _allIpvLines() async {
+    const pageSize = 1000;
+    final lines = <Map<String, dynamic>>[];
+    var from = 0;
+    while (true) {
+      final chunk = await _client.from('ipv_lines').select().range(from, from + pageSize - 1);
+      final page = (chunk as List).map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      lines.addAll(page);
+      if (page.length < pageSize) {
+        return lines;
+      }
+      from += pageSize;
+    }
+  }
+
   Future<List<IpvDoc>> ipvs() {
     return _run(() async {
       final docs = await _client.from('ipv_documents').select().order('work_date', ascending: false);
-      final lines = await _client.from('ipv_lines').select();
+      final lines = await _allIpvLines();
       final byIpv = <String, List<IpvLineRow>>{};
-      for (final item in lines as List) {
-        final row = Map<String, dynamic>.from(item as Map);
+      for (final row in lines) {
         final ipvId = row['ipv_id'] as String;
         byIpv.putIfAbsent(ipvId, () => []).add(_ipvLine(row));
       }

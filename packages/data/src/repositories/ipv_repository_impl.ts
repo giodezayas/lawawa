@@ -11,6 +11,9 @@ import {
 import { mapCashFlow } from '../mappers/cash_flow_mapper';
 import { mapIpvDocument, mapIpvLine } from '../mappers/ipv_mapper';
 import type { AppSupabaseClient } from '../supabase/client';
+import type { Database } from '../supabase/database.types';
+
+type IpvLineRow = Database['public']['Tables']['ipv_lines']['Row'];
 
 export class IpvRepositoryImpl implements IpvRepository {
   constructor(private readonly client: AppSupabaseClient) {}
@@ -25,19 +28,32 @@ export class IpvRepositoryImpl implements IpvRepository {
       throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
     }
 
-    const { data: lines, error: linesError } = await this.client.from('ipv_lines').select('*');
-    if (linesError) {
-      throw new DomainError(linesError.message, InventoryErrorCodes.invalidInput);
-    }
+    const lines = await this.listAllLines();
 
-    const linesByIpv = new Map<string, NonNullable<typeof lines>>();
-    for (const line of lines ?? []) {
+    const linesByIpv = new Map<string, typeof lines>();
+    for (const line of lines) {
       const bucket = linesByIpv.get(line.ipv_id) ?? [];
       bucket.push(line);
       linesByIpv.set(line.ipv_id, bucket);
     }
 
     return (data ?? []).map((row) => mapIpvDocument(row, linesByIpv.get(row.id) ?? []));
+  }
+
+  private async listAllLines() {
+    const pageSize = 1000;
+    const lines: IpvLineRow[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await this.client.from('ipv_lines').select('*').range(from, from + pageSize - 1);
+      if (error) {
+        throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
+      }
+      const page = data ?? [];
+      lines.push(...page);
+      if (page.length < pageSize) {
+        return lines;
+      }
+    }
   }
 
   async getById(id: string): Promise<IpvDocument | null> {
