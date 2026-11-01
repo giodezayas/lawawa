@@ -42,7 +42,8 @@ export {
   SALARY_TAX_0520522_EXEMPT,
 } from './entities/tax';
 export type { SaleTaxBreakdown, SalaryTaxBreakdown, PeriodTaxBreakdown } from './entities/tax';
-export { SalesInsight } from './entities/sales_stats';
+export { SalesInsight, periodDayStats } from './entities/sales_stats';
+export type { PeriodDayStat } from './entities/sales_stats';
 export type { ProductSalesRow, DaySalesRow } from './entities/sales_stats';
 export type { AuthRepository, AuthStateListener, Unsubscribe } from './repositories/auth_repository';
 export type {

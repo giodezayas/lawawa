@@ -9,6 +9,15 @@ export type ProductSalesRow = {
   readonly marginPct: number;
 };
 
+export type PeriodDayStat = {
+  readonly workDate: string;
+  readonly saleTotal: number;
+  readonly cashCollected: number;
+  readonly transferCollected: number;
+  readonly topProductName: string;
+  readonly topSoldQty: number;
+};
+
 export type DaySalesRow = {
   readonly workDate: string;
   readonly saleTotal: number;
@@ -72,6 +81,53 @@ function pickDay(
     }
     return left < right ? row : best;
   });
+}
+
+export function periodDayStats(documents: readonly IpvDoc[], from: string, to: string): PeriodDayStat[] {
+  const byDate = new Map<
+    string,
+    { saleTotal: number; cashCollected: number; transferCollected: number; qty: Map<string, { name: string; soldQty: number; saleTotal: number }> }
+  >();
+  for (const document of documents) {
+    if (document.workDate < from || document.workDate > to || document.lines.length === 0) {
+      continue;
+    }
+    const current = byDate.get(document.workDate) ?? { saleTotal: 0, cashCollected: 0, transferCollected: 0, qty: new Map() };
+    current.saleTotal = round2(current.saleTotal + IpvDocument.saleTotal(document));
+    current.cashCollected = round2(current.cashCollected + document.cashCollected);
+    current.transferCollected = round2(current.transferCollected + document.transferCollected);
+    for (const line of document.lines) {
+      const product = current.qty.get(line.productId) ?? { name: line.productName, soldQty: 0, saleTotal: 0 };
+      product.soldQty += line.soldQty;
+      product.saleTotal = round2(product.saleTotal + line.saleTotal);
+      current.qty.set(line.productId, product);
+    }
+    byDate.set(document.workDate, current);
+  }
+  return [...byDate.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .flatMap(([workDate, day]) => {
+      const products = [...day.qty.values()];
+      const top = products.reduce<(typeof products)[number] | null>((best, row) => {
+        if (!best || row.soldQty > best.soldQty || (row.soldQty === best.soldQty && row.saleTotal > best.saleTotal)) {
+          return row;
+        }
+        return best;
+      }, null);
+      if (!top || top.soldQty <= 0) {
+        return [];
+      }
+      return [
+        {
+          workDate,
+          saleTotal: day.saleTotal,
+          cashCollected: day.cashCollected,
+          transferCollected: day.transferCollected,
+          topProductName: top.name,
+          topSoldQty: top.soldQty,
+        },
+      ];
+    });
 }
 
 export const SalesInsight = {

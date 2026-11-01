@@ -5,6 +5,7 @@ import {
   IpvDocument,
   PeriodReport,
   Product,
+  periodDayStats,
   applyPeriodTaxes,
   cardFCollectedInPeriod,
   declaredBilling,
@@ -20,6 +21,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
+import { PeriodCharts } from '../period_charts';
 import { RecaudoSummary } from '../../../shared/ui/cash_flow_summary';
 import { moneyTone } from '../../../shared/ui/money_tone';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
@@ -29,6 +31,7 @@ export function DashboardScreen() {
   const { container, user } = useAuth();
   const [month, setMonth] = useState<PeriodReport | null>(null);
   const [lastIpv, setLastIpv] = useState<IpvDocument | null>(null);
+  const [ipvs, setIpvs] = useState<IpvDocument[]>([]);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [cards, setCards] = useState<ReturnType<typeof CardLedger.from> | null>(null);
   const [lowStock, setLowStock] = useState<Product[]>([]);
@@ -42,19 +45,20 @@ export function DashboardScreen() {
     const period = from && to ? { from, to } : await container.getBillingPeriod.execute();
     setPeriodFrom(period.from);
     setPeriodTo(period.to);
-    const [products, monthReport, ipvs, expenses] = await Promise.all([
+    const [products, monthReport, ipvDocuments, expenses] = await Promise.all([
       container.listProducts.execute(),
       container.getPeriodReport.execute(period.from, period.to),
       container.listIpvs.execute(),
       container.listExpenseEntries.execute(),
     ]);
     const moves = await container.listCashMoves.execute(period.from, period.to);
-    const billing = declaredBilling(cardFCollectedInPeriod(ipvs, period.from, period.to));
+    const billing = declaredBilling(cardFCollectedInPeriod(ipvDocuments, period.from, period.to));
     setLowStock(products.filter((product) => Product.isLowStock(product)));
     setExpenses(expenses);
+    setIpvs(ipvDocuments);
     setMonth(PeriodReport.create(applyPeriodTaxes(monthReport, billing)));
-    setLastIpv(IpvDocument.latest(ipvs));
-    setCards(CardLedger.from(ipvs, moves, period.from, period.to, null));
+    setLastIpv(IpvDocument.latest(ipvDocuments));
+    setCards(CardLedger.from(ipvDocuments, moves, period.from, period.to, null));
   }
 
   useEffect(() => {
@@ -81,6 +85,11 @@ export function DashboardScreen() {
     setPeriodTo(period.to);
     await savePeriod(period.from, period.to);
   }
+
+  const dayStats = useMemo(
+    () => periodDayStats(ipvs, periodFrom, periodTo),
+    [ipvs, periodFrom, periodTo],
+  );
 
   const lastCut = useMemo(() => {
     if (!lastIpv) {
@@ -146,6 +155,7 @@ export function DashboardScreen() {
           </div>
         ) : null}
       </section>
+      <PeriodCharts days={dayStats} />
       {!month && !lastIpv ? (
         pageError ? null : <p className="text-sm text-muted">Cargando Estadísticas...</p>
       ) : (
