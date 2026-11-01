@@ -10,6 +10,7 @@ export const SALARY_TAX_0810132_RATE = 0.125;
 export const SALARY_TAX_0820232_RATE = 0.05;
 export const SALARY_TAX_0520522_RATE = 0.03;
 export const SALARY_TAX_0520522_EXEMPT = 3740;
+export const CARD_F_BILLING_FACTOR = 3;
 
 export type SaleTaxBreakdown = {
   readonly tribute0114022: number;
@@ -30,6 +31,25 @@ export type PeriodTaxBreakdown = {
   readonly salary: SalaryTaxBreakdown;
   readonly total: number;
 };
+
+export function declaredBilling(cardFCollected: number): number {
+  return roundMoney(Math.max(cardFCollected, 0) * CARD_F_BILLING_FACTOR);
+}
+
+export function cardFCollectedInPeriod(
+  rows: readonly { workDate: string; transferFCollected: number }[],
+  from: string,
+  to: string,
+): number {
+  return roundMoney(
+    rows.reduce((sum, row) => {
+      if (row.workDate < from || row.workDate > to) {
+        return sum;
+      }
+      return sum + row.transferFCollected;
+    }, 0),
+  );
+}
 
 export function saleTaxes(saleTotal: number): SaleTaxBreakdown {
   const tribute0114022 = roundMoney(Math.max(saleTotal, 0) * SALE_TAX_0114022_RATE);
@@ -66,8 +86,8 @@ export function periodTaxes(saleTotal: number): PeriodTaxBreakdown {
   };
 }
 
-export function applyPeriodTaxes<T extends { saleTotal: number; utilidad: number; tax: number; net: number }>(report: T): T {
-  const taxes = periodTaxes(report.saleTotal);
+export function applyPeriodTaxes<T extends { utilidad: number; tax: number; net: number }>(report: T, billing: number): T {
+  const taxes = periodTaxes(billing);
   return {
     ...report,
     tax: taxes.total,

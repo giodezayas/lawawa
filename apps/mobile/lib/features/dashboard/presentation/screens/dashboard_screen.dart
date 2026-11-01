@@ -22,7 +22,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   PeriodReport? _period;
   IpvDoc? _lastIpv;
   List<ExpenseRow> _expenses = [];
-  ({double cash, double transfer}) _periodRecaudo = (cash: 0, transfer: 0);
   CardBalances? _cards;
   List<ProductRow> _lowStock = [];
   var _error = '';
@@ -50,22 +49,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final products = await api.products();
       final report = await api.periodReport(period.from, period.to);
       final ipvs = await api.ipvs();
-      final purchases = await api.purchases();
       final expenses = await api.expenses();
-      final opening = await api.cardOpening();
-      final ledgerTo = opening != null && opening.asOf.compareTo(period.to) > 0 ? opening.asOf : period.to;
-      final moveFrom = opening != null && opening.asOf.compareTo(period.from) < 0 ? opening.asOf : period.from;
-      final moves = await api.cashMoves(moveFrom, ledgerTo);
+      final moves = await api.cashMoves(period.from, period.to);
       if (!mounted) {
         return;
       }
+      var cardF = 0.0;
+      for (final doc in ipvs) {
+        if (doc.workDate.compareTo(period.from) >= 0 && doc.workDate.compareTo(period.to) <= 0) {
+          cardF += doc.transferFCollected;
+        }
+      }
+      final tax = periodTaxes(declaredBilling(cardF)).total;
       setState(() {
-        _period = report;
+        _period = PeriodReport(
+          from: report.from,
+          to: report.to,
+          saleTotal: report.saleTotal,
+          purchaseTotal: report.purchaseTotal,
+          grossProfit: report.grossProfit,
+          taxableGrossProfit: report.taxableGrossProfit,
+          expenseTotal: report.expenseTotal,
+          utilidad: report.utilidad,
+          tax: tax,
+          net: ((report.utilidad - tax) * 100).round() / 100,
+          closed: report.closed,
+          lines: report.lines,
+        );
         _lastIpv = _latestIpv(ipvs);
         _expenses = expenses;
-        _periodRecaudo = _cajaInRange(ipvs, purchases, expenses, period.from, period.to, opening);
-        _cards = CardBalances.from(ipvs, moves, period.from, period.to, opening);
-        _lowStock = products.where((product) => product.isLowStock).toList();
+        _cards = CardBalances.from(ipvs, moves, period.from, period.to, null);
+        _lowStock = products.where((product) => product.isLowStock).take(5).toList();
         _from = period.from;
         _to = period.to;
         _loading = false;
@@ -218,31 +232,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             cash: lastIpv?.cashCollected ?? 0,
             transfer: lastIpv?.transferCollected ?? 0,
           ),
-          const SizedBox(height: 20),
-          RecaudoCards(
-            title: period == null
-                ? 'Caja Del Período'
-                : 'Caja Del Período · ${formatDateOnly(period.from)} — ${formatDateOnly(period.to)}',
-            cash: _periodRecaudo.cash,
-            transfer: _periodRecaudo.transfer,
-          ),
           if (_cards != null) ...[
             const SizedBox(height: 20),
             const Text('Tarjetas', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            StatCard(label: 'Tarjeta P', value: formatMoney(_cards!.p.balance), tone: moneyColor(_cards!.p.balance)),
-            const SizedBox(height: 4),
-            Text(
-              'Inicial ${formatMoney(_cards!.p.opening)} · Recibido ${formatMoney(_cards!.p.received)} · Extraído ${formatMoney(_cards!.p.withdrawn)}',
-              style: const TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
+            StatCard(label: 'Cuenta Personal', value: formatMoney(_cards!.p.balance)),
             const SizedBox(height: 8),
-            StatCard(label: 'Tarjeta F', value: formatMoney(_cards!.f.balance), tone: moneyColor(_cards!.f.balance)),
-            const SizedBox(height: 4),
-            Text(
-              'Inicial ${formatMoney(_cards!.f.opening)} · Recibido ${formatMoney(_cards!.f.received)} · Extraído ${formatMoney(_cards!.f.withdrawn)}',
-              style: const TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
+            StatCard(label: 'Cuenta Fiscal', value: formatMoney(_cards!.f.balance)),
             const SizedBox(height: 12),
             PrimaryButton(
               label: 'Manejar Tarjetas',
@@ -295,52 +291,5 @@ IpvDoc? _latestIpv(List<IpvDoc> documents) {
     }
   }
   return best;
-}
-
-({double cash, double transfer}) _cajaInRange(
-  List<IpvDoc> documents,
-  List<PurchaseDoc> purchases,
-  List<ExpenseRow> expenses,
-  String from,
-  String to,
-  ({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})? opening,
-) {
-  String cashFrom = from;
-  var cash = 0.0;
-  if (opening != null && to.compareTo(opening.cashAsOf) >= 0) {
-    cashFrom = isoDate(DateTime.parse('${opening.cashAsOf}T00:00:00').add(const Duration(days: 1)));
-    cash = opening.cashAmount;
-  }
-  var transfer = 0.0;
-  for (final row in documents) {
-    if (row.workDate.compareTo(from) >= 0 && row.workDate.compareTo(to) <= 0) {
-      transfer += row.transferCollected;
-    }
-    if (cashFrom.compareTo(to) <= 0 && row.workDate.compareTo(cashFrom) >= 0 && row.workDate.compareTo(to) <= 0) {
-      cash += row.cashCollected;
-    }
-  }
-  for (final purchase in purchases) {
-    if (purchase.purchasedOn.compareTo(from) >= 0 &&
-        purchase.purchasedOn.compareTo(to) <= 0 &&
-        purchase.paymentMethod == 'transfer') {
-      transfer -= purchase.total;
-    }
-    if (cashFrom.compareTo(to) <= 0 &&
-        purchase.purchasedOn.compareTo(cashFrom) >= 0 &&
-        purchase.purchasedOn.compareTo(to) <= 0 &&
-        purchase.paymentMethod != 'transfer') {
-      cash -= purchase.total;
-    }
-  }
-  if (cashFrom.compareTo(to) <= 0) {
-    for (final expense in expenses) {
-      if (expense.occurredOn.compareTo(cashFrom) < 0 || expense.occurredOn.compareTo(to) > 0) {
-        continue;
-      }
-      cash -= expense.amount;
-    }
-  }
-  return (cash: (cash * 100).round() / 100, transfer: (transfer * 100).round() / 100);
 }
 

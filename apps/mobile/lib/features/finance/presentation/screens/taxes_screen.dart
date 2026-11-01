@@ -17,7 +17,7 @@ class TaxesScreen extends ConsumerStatefulWidget {
 class _TaxesScreenState extends ConsumerState<TaxesScreen> {
   var _from = '';
   var _to = '';
-  var _saleTotal = 0.0;
+  var _cardF = 0.0;
   var _error = '';
   var _loading = true;
 
@@ -50,12 +50,18 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
       _error = '';
     });
     try {
-      final report = await ref.read(wawaClientProvider).periodReport(_from, _to);
+      final ipvs = await ref.read(wawaClientProvider).ipvs();
       if (!mounted) {
         return;
       }
+      var cardF = 0.0;
+      for (final doc in ipvs) {
+        if (doc.workDate.compareTo(_from) >= 0 && doc.workDate.compareTo(_to) <= 0) {
+          cardF += doc.transferFCollected;
+        }
+      }
       setState(() {
-        _saleTotal = report.saleTotal;
+        _cardF = cardF;
         _loading = false;
       });
     } catch (error) {
@@ -81,8 +87,9 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final taxes = periodTaxes(_saleTotal);
-    final sale = saleTaxes(_saleTotal);
+    final billing = declaredBilling(_cardF);
+    final taxes = periodTaxes(billing);
+    final sale = saleTaxes(billing);
     final salary = salaryTaxes();
     return Scaffold(
       appBar: AppBar(title: const Text('Impuestos')),
@@ -114,7 +121,7 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
             if (_loading) const Padding(padding: EdgeInsets.only(top: 24), child: Center(child: CircularProgressIndicator())),
             if (!_loading) ...[
               const SizedBox(height: 20),
-              Text('Venta Del Período ${formatMoney(_saleTotal)}', style: const TextStyle(color: AppColors.muted)),
+              Text('Tarjeta F ${formatMoney(_cardF)} · Facturación ${formatMoney(billing)}', style: const TextStyle(color: AppColors.muted)),
               const SizedBox(height: 8),
               StatCard(label: '0114022 · 10%', value: formatMoney(sale.tribute0114022), tone: AppColors.danger),
               const SizedBox(height: 8),

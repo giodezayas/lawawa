@@ -5,6 +5,9 @@ import {
   IpvDocument,
   PeriodReport,
   Product,
+  applyPeriodTaxes,
+  cardFCollectedInPeriod,
+  declaredBilling,
   ipvDayCut,
   otherExpensesOnDate,
   formatDateOnly,
@@ -27,7 +30,6 @@ export function DashboardScreen() {
   const [month, setMonth] = useState<PeriodReport | null>(null);
   const [lastIpv, setLastIpv] = useState<IpvDocument | null>(null);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
-  const [periodRecaudo, setPeriodRecaudo] = useState({ cash: 0, transfer: 0 });
   const [cards, setCards] = useState<ReturnType<typeof CardLedger.from> | null>(null);
   const [lowStock, setLowStock] = useState<Product[]>([]);
   const [pageError, setPageError] = useState('');
@@ -40,23 +42,19 @@ export function DashboardScreen() {
     const period = from && to ? { from, to } : await container.getBillingPeriod.execute();
     setPeriodFrom(period.from);
     setPeriodTo(period.to);
-    const [products, monthReport, ipvs, opening, purchases, expenses] = await Promise.all([
+    const [products, monthReport, ipvs, expenses] = await Promise.all([
       container.listProducts.execute(),
       container.getPeriodReport.execute(period.from, period.to),
       container.listIpvs.execute(),
-      container.getCardOpening.execute(),
-      container.listPurchases.execute(),
       container.listExpenseEntries.execute(),
     ]);
-    const ledgerTo = opening && opening.asOf > period.to ? opening.asOf : period.to;
-    const moveFrom = opening && opening.asOf < period.from ? opening.asOf : period.from;
-    const moves = opening ? await container.listCashMoves.execute(moveFrom, ledgerTo) : [];
+    const moves = await container.listCashMoves.execute(period.from, period.to);
+    const billing = declaredBilling(cardFCollectedInPeriod(ipvs, period.from, period.to));
     setLowStock(products.filter((product) => Product.isLowStock(product)));
     setExpenses(expenses);
-    setMonth(monthReport);
+    setMonth(PeriodReport.create(applyPeriodTaxes(monthReport, billing)));
     setLastIpv(IpvDocument.latest(ipvs));
-    setPeriodRecaudo(IpvDocument.cajaInRange(ipvs, purchases, expenses, period.from, period.to, opening));
-    setCards(CardLedger.from(ipvs, moves, period.from, period.to, opening));
+    setCards(CardLedger.from(ipvs, moves, period.from, period.to, null));
   }
 
   useEffect(() => {
@@ -207,11 +205,6 @@ export function DashboardScreen() {
             cash={lastIpv?.cashCollected ?? 0}
             transfer={lastIpv ? IpvDocument.transferTotal(lastIpv) : 0}
           />
-          <RecaudoSummary
-            title={`Caja Del Período${month ? ` · ${formatDateOnly(month.from)} — ${formatDateOnly(month.to)}` : ''}`}
-            cash={periodRecaudo.cash}
-            transfer={periodRecaudo.transfer}
-          />
           {cards ? (
             <section className="space-y-3">
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -221,25 +214,13 @@ export function DashboardScreen() {
                 </Link>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
-                  <p className="text-sm font-medium text-muted">Tarjeta P</p>
-                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(cards.p.balance)}`}>
-                    {formatMoney(cards.p.balance)}
-                  </p>
-                  <p className="mt-2 text-right text-xs text-muted">
-                    Inicial {formatMoney(cards.p.opening)} · Recibido {formatMoney(cards.p.received)} · Extraído{' '}
-                    {formatMoney(cards.p.withdrawn)}
-                  </p>
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Cuenta Personal</p>
+                  <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(cards.p.balance)}</p>
                 </article>
-                <article className="rounded-3xl border-2 border-accent bg-white px-5 py-4">
-                  <p className="text-sm font-medium text-muted">Tarjeta F</p>
-                  <p className={`mt-1 text-right text-2xl font-extrabold ${moneyTone(cards.f.balance)}`}>
-                    {formatMoney(cards.f.balance)}
-                  </p>
-                  <p className="mt-2 text-right text-xs text-muted">
-                    Inicial {formatMoney(cards.f.opening)} · Recibido {formatMoney(cards.f.received)} · Extraído{' '}
-                    {formatMoney(cards.f.withdrawn)}
-                  </p>
+                <article className="rounded-3xl border border-line bg-white px-5 py-4">
+                  <p className="text-sm font-medium text-muted">Cuenta Fiscal</p>
+                  <p className="mt-1 text-right text-2xl font-extrabold">{formatMoney(cards.f.balance)}</p>
                 </article>
               </div>
             </section>
@@ -277,29 +258,19 @@ export function DashboardScreen() {
           {lowStock.length > 0 ? (
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-primary">Bajo Stock</h2>
-              <div className="overflow-x-auto rounded-3xl border border-line bg-white">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-left">
-                      <th className="px-4 py-3 font-semibold">Producto</th>
-                      <th className="px-4 py-3 text-right font-semibold">Stock</th>
-                      <th className="px-4 py-3 text-right font-semibold">Mínimo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lowStock.map((product) => (
-                      <tr key={product.id} className="border-t border-line">
-                        <td className="px-4 py-3">
-                          <Link to={`/inventario/productos/${product.id}`} className="font-semibold text-primary">
-                            {product.name}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 text-right">{product.stockQty}</td>
-                        <td className="px-4 py-3 text-right">{product.minStock}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {lowStock.slice(0, 5).map((product) => (
+                  <Link
+                    key={product.id}
+                    to={`/inventario/productos/${product.id}`}
+                    className="rounded-3xl border border-line bg-white px-4 py-3"
+                  >
+                    <p className="truncate text-sm font-semibold text-primary">{product.name}</p>
+                    <p className="mt-1 text-right text-sm text-muted">
+                      {product.stockQty} / {product.minStock}
+                    </p>
+                  </Link>
+                ))}
               </div>
             </section>
           ) : null}

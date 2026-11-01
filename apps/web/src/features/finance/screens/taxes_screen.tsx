@@ -3,6 +3,8 @@ import {
   DECLARED_MONTHLY_SALARY,
   SALE_TAX_0510122_EXEMPT,
   SALARY_TAX_0520522_EXEMPT,
+  cardFCollectedInPeriod,
+  declaredBilling,
   defaultBillingPeriod,
   formatDateOnly,
   formatMoney,
@@ -17,7 +19,7 @@ export function TaxesScreen() {
   const { container } = useAuth();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [saleTotal, setSaleTotal] = useState(0);
+  const [cardF, setCardF] = useState(0);
   const [pageError, setPageError] = useState('');
 
   useEffect(() => {
@@ -37,11 +39,11 @@ export function TaxesScreen() {
       return;
     }
     let cancelled = false;
-    void container.getPeriodReport
-      .execute(from, to)
-      .then((report) => {
+    void container.listIpvs
+      .execute()
+      .then((documents) => {
         if (!cancelled) {
-          setSaleTotal(report.saleTotal);
+          setCardF(cardFCollectedInPeriod(documents, from, to));
         }
       })
       .catch((error) => {
@@ -64,25 +66,23 @@ export function TaxesScreen() {
     setTo(next.to);
   }
 
-  const taxes = useMemo(() => periodTaxes(saleTotal), [saleTotal]);
+  const billing = useMemo(() => declaredBilling(cardF), [cardF]);
+  const taxes = useMemo(() => periodTaxes(billing), [billing]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold">Impuestos</h1>
-          <p className="mt-1 text-sm text-muted">
-            Venta del período: 10% (0114022) y 5% sobre la venta menos $ 3,260.00 (0510122). El salario al trabajador
-            sigue en $ 1,500.00 al día; a Hacienda se declaran $ 7,000.00 al mes.
-          </p>
+          <p className="mt-1 text-sm text-muted">Facturación: Tarjeta F × 3.</p>
         </div>
         <ExportButtons
           title={`Impuestos ${from} ${to}`}
           fileName={`impuestos_${from}_${to}`}
           columns={['Tributo', 'Base', 'Importe']}
           rows={[
-            ['0114022', formatMoney(saleTotal), formatMoney(taxes.sale.tribute0114022)],
-            ['0510122', formatMoney(Math.max(saleTotal - SALE_TAX_0510122_EXEMPT, 0)), formatMoney(taxes.sale.tribute0510122)],
+            ['0114022', formatMoney(billing), formatMoney(taxes.sale.tribute0114022)],
+            ['0510122', formatMoney(Math.max(billing - SALE_TAX_0510122_EXEMPT, 0)), formatMoney(taxes.sale.tribute0510122)],
             ['0810132', formatMoney(taxes.salary.declaredSalary), formatMoney(taxes.salary.tribute0810132)],
             ['0820232', formatMoney(taxes.salary.declaredSalary), formatMoney(taxes.salary.tribute0820232)],
             ['0520522', formatMoney(Math.max(taxes.salary.declaredSalary - SALARY_TAX_0520522_EXEMPT, 0)), formatMoney(taxes.salary.tribute0520522)],
@@ -114,8 +114,10 @@ export function TaxesScreen() {
       </div>
       {pageError ? <p className="text-sm text-danger">{pageError}</p> : null}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-primary">Sobre La Venta</h2>
-        <p className="text-sm text-muted">Venta Del Período {formatMoney(saleTotal)}</p>
+        <h2 className="text-sm font-semibold text-primary">Sobre La Facturación</h2>
+        <p className="text-sm text-muted">
+          Tarjeta F {formatMoney(cardF)} · Facturación {formatMoney(billing)}
+        </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <article className="rounded-3xl border border-line bg-white px-5 py-4">
             <p className="text-sm font-medium text-muted">0114022 · 10%</p>

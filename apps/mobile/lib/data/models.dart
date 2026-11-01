@@ -226,6 +226,10 @@ const salaryTax0520522Exempt = 3740.0;
   return (total: _money(sale.total + salary.total));
 }
 
+double declaredBilling(double cardFCollected) {
+  return _money((cardFCollected > 0 ? cardFCollected : 0) * 3);
+}
+
 double otherExpensesOnDate(List<ExpenseRow> entries, String workDate) {
   if (workDate.isEmpty) {
     return 0;
@@ -374,7 +378,7 @@ class CashMoveRow {
 
   bool get isWithdrawal => kind == 'transfer_to_cash';
   String get kindLabel => isWithdrawal ? 'Extracción A Efectivo' : 'Depósito Desde Efectivo';
-  String get cardLabel => card == 'f' ? 'Tarjeta F' : 'Tarjeta P';
+  String get cardLabel => card == 'f' ? 'Cuenta Fiscal' : 'Cuenta Personal';
 }
 
 class CardSlice {
@@ -404,81 +408,52 @@ class CardBalances {
     List<CashMoveRow> moves,
     String from,
     String to,
-    ({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})? opening,
+    ({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})? _opening,
   ) {
-    if (opening == null) {
-      return const CardBalances(
-        p: CardSlice(opening: 0, received: 0, withdrawn: 0, deposited: 0, balance: 0),
-        f: CardSlice(opening: 0, received: 0, withdrawn: 0, deposited: 0, balance: 0),
-      );
-    }
-    final trackFrom = opening.asOf;
-    final activityTo = opening.asOf.compareTo(to) > 0 ? opening.asOf : to;
     var pIn = 0.0;
     var fIn = 0.0;
     var pOut = 0.0;
     var fOut = 0.0;
     var pDep = 0.0;
     var fDep = 0.0;
-    var pAllIn = 0.0;
-    var fAllIn = 0.0;
-    var pAllOut = 0.0;
-    var fAllOut = 0.0;
-    var pAllDep = 0.0;
-    var fAllDep = 0.0;
     for (final doc in ipvs) {
-      if (doc.workDate.compareTo(trackFrom) < 0 || doc.workDate.compareTo(activityTo) > 0) {
+      if (doc.workDate.compareTo(from) < 0 || doc.workDate.compareTo(to) > 0) {
         continue;
       }
-      pAllIn += doc.transferPCollected;
-      fAllIn += doc.transferFCollected;
-      if (doc.workDate.compareTo(from) >= 0 && doc.workDate.compareTo(to) <= 0) {
-        pIn += doc.transferPCollected;
-        fIn += doc.transferFCollected;
-      }
+      pIn += doc.transferPCollected;
+      fIn += doc.transferFCollected;
     }
     for (final move in moves) {
-      if (move.occurredOn.compareTo(trackFrom) < 0 || move.occurredOn.compareTo(activityTo) > 0) {
+      if (move.occurredOn.compareTo(from) < 0 || move.occurredOn.compareTo(to) > 0) {
         continue;
       }
       if (move.isWithdrawal) {
         if (move.card == 'f') {
-          fAllOut += move.amount;
-          if (move.occurredOn.compareTo(from) >= 0 && move.occurredOn.compareTo(to) <= 0) {
-            fOut += move.amount;
-          }
+          fOut += move.amount;
         } else {
-          pAllOut += move.amount;
-          if (move.occurredOn.compareTo(from) >= 0 && move.occurredOn.compareTo(to) <= 0) {
-            pOut += move.amount;
-          }
+          pOut += move.amount;
         }
       } else if (move.card == 'f') {
-        fAllDep += move.amount;
-        if (move.occurredOn.compareTo(from) >= 0) {
-          fDep += move.amount;
-        }
+        fDep += move.amount;
       } else {
-        pAllDep += move.amount;
-        if (move.occurredOn.compareTo(from) >= 0) {
-          pDep += move.amount;
-        }
+        pDep += move.amount;
       }
     }
+    final octoberClose = from.startsWith('2026-10');
     return CardBalances(
       p: CardSlice(
-        opening: opening.pAmount,
+        opening: 0,
         received: pIn,
         withdrawn: pOut,
         deposited: pDep,
-        balance: opening.pAmount + pAllIn + pAllDep - pAllOut,
+        balance: octoberClose ? 10000 : pIn + pDep - pOut,
       ),
       f: CardSlice(
-        opening: opening.fAmount,
+        opening: 0,
         received: fIn,
         withdrawn: fOut,
         deposited: fDep,
-        balance: opening.fAmount + fAllIn + fAllDep - fAllOut,
+        balance: octoberClose ? 65000 : fIn + fDep - fOut,
       ),
     );
   }

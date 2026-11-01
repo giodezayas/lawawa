@@ -7,16 +7,12 @@ import {
   shiftCalendarMonth,
   todayIsoDate,
   toMoneyNumber,
-  type CardOpening,
-  type CashMoveKind,
   type CashMoveProps,
   type TransferCard,
 } from '@wawa/domain';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../../../app/providers/auth_provider';
 import { useConfirm } from '../../../shared/ui/confirm_dialog';
-import { moneyTone } from '../../../shared/ui/money_tone';
 import { PrimaryButton } from '../../../shared/ui/primary_button';
 import { TextField } from '../../../shared/ui/text_field';
 
@@ -48,28 +44,8 @@ function BankCard({
           {letter}
         </span>
       </div>
-      <p className={`relative mt-8 text-right text-4xl font-extrabold ${slice.balance < 0 ? 'text-accent' : ''}`}>
-        {formatMoney(slice.balance)}
-      </p>
-      <p className="relative mt-1 text-right text-sm text-white/80">Saldo</p>
-      <dl className="relative mt-6 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-        <div>
-          <dt className="text-white/70">Conteo Inicial</dt>
-          <dd className="mt-1 font-semibold">{formatMoney(slice.opening)}</dd>
-        </div>
-        <div>
-          <dt className="text-white/70">Recibido</dt>
-          <dd className="mt-1 font-semibold">{formatMoney(slice.received)}</dd>
-        </div>
-        <div>
-          <dt className="text-white/70">Extraído</dt>
-          <dd className="mt-1 font-semibold">{formatMoney(slice.withdrawn)}</dd>
-        </div>
-        <div>
-          <dt className="text-white/70">Depositado</dt>
-          <dd className="mt-1 font-semibold">{formatMoney(slice.deposited)}</dd>
-        </div>
-      </dl>
+      <p className="relative mt-8 text-right text-4xl font-extrabold">{formatMoney(slice.balance)}</p>
+      <p className="relative mt-1 text-right text-sm text-white/80">Queda</p>
     </article>
   );
 }
@@ -82,16 +58,8 @@ export function CardsScreen() {
   const [pageError, setPageError] = useState('');
   const [loading, setLoading] = useState(true);
   const [ledger, setLedger] = useState<ReturnType<typeof CardLedger.from> | null>(null);
-  const [opening, setOpening] = useState<CardOpening | null>(null);
-  const [openingDate, setOpeningDate] = useState(todayIsoDate());
-  const [openingP, setOpeningP] = useState('');
-  const [openingF, setOpeningF] = useState('');
-  const [cashOpeningDate, setCashOpeningDate] = useState('2026-10-04');
-  const [cashOpeningAmount, setCashOpeningAmount] = useState('47030');
-  const [savingOpening, setSavingOpening] = useState(false);
   const [moves, setMoves] = useState<CashMoveProps[]>([]);
   const [moveCard, setMoveCard] = useState<TransferCard>('p');
-  const [moveKind, setMoveKind] = useState<CashMoveKind>('transfer_to_cash');
   const [moveDate, setMoveDate] = useState(todayIsoDate());
   const [moveAmount, setMoveAmount] = useState('');
   const [moveNotes, setMoveNotes] = useState('');
@@ -104,24 +72,12 @@ export function CardsScreen() {
       const period = nextFrom && nextTo ? { from: nextFrom, to: nextTo } : await container.getBillingPeriod.execute();
       setFrom(period.from);
       setTo(period.to);
-      const nextOpening = await container.getCardOpening.execute();
-      const ledgerTo = nextOpening && nextOpening.asOf > period.to ? nextOpening.asOf : period.to;
-      const moveFrom =
-        nextOpening && nextOpening.asOf < period.from ? nextOpening.asOf : period.from;
       const [ipvs, nextMoves] = await Promise.all([
         container.listIpvs.execute(),
-        container.listCashMoves.execute(moveFrom, ledgerTo),
+        container.listCashMoves.execute(period.from, period.to),
       ]);
-      setOpening(nextOpening);
-      if (nextOpening) {
-        setOpeningDate(nextOpening.asOf);
-        setOpeningP(String(nextOpening.pAmount));
-        setOpeningF(String(nextOpening.fAmount));
-        setCashOpeningDate(nextOpening.cashAsOf);
-        setCashOpeningAmount(String(nextOpening.cashAmount));
-      }
-      setMoves(nextMoves.filter((move) => move.occurredOn >= period.from && move.occurredOn <= period.to));
-      setLedger(CardLedger.from(ipvs, nextMoves, period.from, period.to, nextOpening));
+      setMoves(nextMoves.filter((move) => move.kind === 'transfer_to_cash'));
+      setLedger(CardLedger.from(ipvs, nextMoves, period.from, period.to, null));
     } catch (error) {
       setPageError(error instanceof DomainError ? error.message : 'No se pudieron cargar las tarjetas.');
     } finally {
@@ -141,30 +97,6 @@ export function CardsScreen() {
     void load(next.from, next.to);
   }
 
-  async function saveOpening() {
-    if (!user) {
-      return;
-    }
-    setSavingOpening(true);
-    setPageError('');
-    try {
-      await container.upsertCardOpening.execute({
-        asOf: openingDate,
-        pAmount: toMoneyNumber(openingP),
-        fAmount: toMoneyNumber(openingF),
-        cashAsOf: cashOpeningDate,
-        cashAmount: toMoneyNumber(cashOpeningAmount),
-        notes: '',
-        updatedBy: user.id,
-      });
-      await load(from, to);
-    } catch (error) {
-      setPageError(error instanceof DomainError ? error.message : 'No se pudo guardar el saldo inicial.');
-    } finally {
-      setSavingOpening(false);
-    }
-  }
-
   async function saveMove() {
     if (!user) {
       return;
@@ -174,7 +106,7 @@ export function CardsScreen() {
     try {
       await container.createCashMove.execute({
         occurredOn: moveDate,
-        kind: moveKind,
+        kind: 'transfer_to_cash',
         card: moveCard,
         amount: toMoneyNumber(moveAmount),
         notes: moveNotes.trim(),
@@ -206,7 +138,7 @@ export function CardsScreen() {
     }
   }
 
-  const totalBalance = useMemo(() => {
+  const totalLeft = useMemo(() => {
     if (!ledger) {
       return 0;
     }
@@ -218,14 +150,7 @@ export function CardsScreen() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold">Tarjetas</h1>
-          <p className="mt-1 text-sm text-muted">
-            No se parte el recaudo viejo. Anota lo que hay hoy en cada tarjeta; desde esa fecha el IPV P/F y las
-            extracciones nuevas sí cuentan. Las extracciones de P que ya salieron van incluidas en ese saldo.
-          </p>
         </div>
-        <Link to="/" className="text-sm font-semibold text-primary">
-          Ver Caja
-        </Link>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className="btn-outline h-10 rounded-2xl px-4 text-sm font-semibold" onClick={() => shift(-1)}>
@@ -243,65 +168,17 @@ export function CardsScreen() {
         pageError ? null : <p className="text-sm text-muted">Cargando Tarjetas...</p>
       ) : (
         <>
-          <section className="space-y-4 rounded-3xl border border-line bg-surface p-5">
-            <h2 className="text-sm font-semibold text-primary">Saldo Que Hay Ahora</h2>
-            <p className="text-sm text-muted">
-              {opening
-                ? `Conteo desde ${formatDateOnly(opening.asOf)}. Los IPV anteriores no se asignan a P ni a F.`
-                : 'Todavía no hay conteo. Escribe lo que queda hoy en P y en F, y la fecha desde la que vas a registrar a qué tarjeta va cada recaudo.'}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <TextField label="Desde *" type="date" value={openingDate} onChange={(event) => setOpeningDate(event.target.value)} />
-              <TextField
-                label="Tarjeta P *"
-                inputMode="decimal"
-                value={openingP}
-                onChange={(event) => setOpeningP(event.target.value)}
-              />
-              <TextField
-                label="Tarjeta F *"
-                inputMode="decimal"
-                value={openingF}
-                onChange={(event) => setOpeningF(event.target.value)}
-              />
-            </div>
-            <h3 className="text-sm font-semibold text-primary">Efectivo En Caja</h3>
-            <p className="text-sm text-muted">
-              Lo de antes de esta fecha no cuenta. El importe es lo que había en el cajón ese día, ya aparte ganancia,
-              gastos e impuesto. Los IPV del día siguiente en adelante sí mueven caja.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <TextField
-                label="Caja Desde *"
-                type="date"
-                value={cashOpeningDate}
-                onChange={(event) => setCashOpeningDate(event.target.value)}
-              />
-              <TextField
-                label="Efectivo *"
-                inputMode="decimal"
-                value={cashOpeningAmount}
-                onChange={(event) => setCashOpeningAmount(event.target.value)}
-              />
-            </div>
-            <PrimaryButton type="button" loading={savingOpening} onClick={() => void saveOpening()}>
-              Guardar Saldo Inicial
-            </PrimaryButton>
-          </section>
           <div className="grid gap-5 lg:grid-cols-2">
-            <BankCard name="Tarjeta P" letter="P" slice={ledger.p} variant="p" />
-            <BankCard name="Tarjeta F" letter="F" slice={ledger.f} variant="f" />
+            <BankCard name="Cuenta Personal" letter="P" slice={ledger.p} variant="p" />
+            <BankCard name="Cuenta Fiscal" letter="F" slice={ledger.f} variant="f" />
           </div>
           <article className="rounded-3xl border border-line bg-white px-5 py-4">
-            <p className="text-sm font-medium text-muted">Total En Ambas</p>
-            <p className={`mt-1 text-right text-3xl font-extrabold ${moneyTone(totalBalance)}`}>{formatMoney(totalBalance)}</p>
+            <p className="text-sm font-medium text-muted">Total</p>
+            <p className="mt-1 text-right text-3xl font-extrabold">{formatMoney(totalLeft)}</p>
           </article>
           <section className="space-y-4 rounded-3xl border border-line bg-surface p-5">
-            <h2 className="text-sm font-semibold text-primary">Registrar Extracción O Depósito</h2>
-            <p className="text-sm text-muted">
-              Extracción: sale de esa tarjeta y entra a efectivo. Depósito: sale de efectivo y entra a esa tarjeta.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <h2 className="text-sm font-semibold text-primary">Registrar Extracción</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <TextField label="Fecha *" type="date" value={moveDate} onChange={(event) => setMoveDate(event.target.value)} />
               <label className="grid gap-1 text-sm">
                 <span className="font-medium">Tarjeta *</span>
@@ -310,19 +187,8 @@ export function CardsScreen() {
                   value={moveCard}
                   onChange={(event) => setMoveCard(event.target.value as TransferCard)}
                 >
-                  <option value="p">Tarjeta P</option>
-                  <option value="f">Tarjeta F</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium">Tipo *</span>
-                <select
-                  className="h-12 rounded-2xl border border-line bg-white px-3"
-                  value={moveKind}
-                  onChange={(event) => setMoveKind(event.target.value as CashMoveKind)}
-                >
-                  <option value="transfer_to_cash">Extracción A Efectivo</option>
-                  <option value="cash_to_transfer">Depósito Desde Efectivo</option>
+                  <option value="p">Cuenta Personal</option>
+                  <option value="f">Cuenta Fiscal</option>
                 </select>
               </label>
               <TextField
@@ -338,7 +204,7 @@ export function CardsScreen() {
             </PrimaryButton>
           </section>
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-primary">Movimientos</h2>
+            <h2 className="text-sm font-semibold text-primary">Extracciones</h2>
             <div className="overflow-x-auto rounded-3xl border border-line bg-white">
               <table className="min-w-full text-sm">
                 <thead>
@@ -367,7 +233,6 @@ export function CardsScreen() {
                         <td className="px-4 py-3 text-right">{formatMoney(move.amount)}</td>
                         <td className="px-4 py-3">
                           {move.notes || '—'}
-                          {opening && move.occurredOn < opening.asOf ? ' · No entra en el saldo' : ''}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button

@@ -19,23 +19,15 @@ class CardsScreen extends ConsumerStatefulWidget {
 class _CardsScreenState extends ConsumerState<CardsScreen> {
   final _amount = TextEditingController();
   final _notes = TextEditingController();
-  final _openingP = TextEditingController();
-  final _openingF = TextEditingController();
-  final _openingCash = TextEditingController(text: '47030');
   var _from = isoDate();
   var _to = isoDate();
   var _moveDate = isoDate();
-  var _openingDate = isoDate();
-  var _cashOpeningDate = '2026-10-04';
-  ({String asOf, double pAmount, double fAmount, String cashAsOf, double cashAmount})? _opening;
   var _card = 'p';
-  var _kind = 'transfer_to_cash';
   CardBalances? _ledger;
   List<CashMoveRow> _moves = [];
   var _error = '';
   var _loading = true;
   var _saving = false;
-  var _savingOpening = false;
 
   @override
   void initState() {
@@ -47,9 +39,6 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
   void dispose() {
     _amount.dispose();
     _notes.dispose();
-    _openingP.dispose();
-    _openingF.dispose();
-    _openingCash.dispose();
     super.dispose();
   }
 
@@ -78,24 +67,13 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
     try {
       final api = ref.read(wawaClientProvider);
       final ipvs = await api.ipvs();
-      final opening = await api.cardOpening();
-      final ledgerTo = opening != null && opening.asOf.compareTo(_to) > 0 ? opening.asOf : _to;
-      final moveFrom = opening != null && opening.asOf.compareTo(_from) < 0 ? opening.asOf : _from;
-      final moves = await api.cashMoves(moveFrom, ledgerTo);
+      final moves = await api.cashMoves(_from, _to);
       if (!mounted) {
         return;
       }
       setState(() {
-        _opening = opening;
-        if (opening != null) {
-          _openingDate = opening.asOf;
-          _openingP.text = opening.pAmount.toString();
-          _openingF.text = opening.fAmount.toString();
-          _cashOpeningDate = opening.cashAsOf;
-          _openingCash.text = opening.cashAmount.toString();
-        }
-        _moves = moves.where((move) => move.occurredOn.compareTo(_from) >= 0 && move.occurredOn.compareTo(_to) <= 0).toList();
-        _ledger = CardBalances.from(ipvs, moves, _from, _to, opening);
+        _moves = moves.where((move) => move.isWithdrawal).toList();
+        _ledger = CardBalances.from(ipvs, moves, _from, _to, null);
         _loading = false;
       });
     } catch (error) {
@@ -106,36 +84,6 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
         _error = error.toString();
         _loading = false;
       });
-    }
-  }
-
-  Future<void> _saveOpening() async {
-    final auth = ref.read(authControllerProvider);
-    if (auth is! AuthAuthenticated) {
-      return;
-    }
-    setState(() {
-      _savingOpening = true;
-      _error = '';
-    });
-    try {
-      await ref.read(wawaClientProvider).saveCardOpening(
-        asOf: _openingDate,
-        pAmount: parseMoney(_openingP.text),
-        fAmount: parseMoney(_openingF.text),
-        cashAsOf: _cashOpeningDate,
-        cashAmount: parseMoney(_openingCash.text),
-        updatedBy: auth.user.id,
-      );
-      await _load();
-    } catch (error) {
-      if (mounted) {
-        setState(() => _error = error.toString());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _savingOpening = false);
-      }
     }
   }
 
@@ -151,7 +99,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
     try {
       await ref.read(wawaClientProvider).createCashMove(
         occurredOn: _moveDate,
-        kind: _kind,
+        kind: 'transfer_to_cash',
         card: _card,
         amount: parseMoney(_amount.text),
         notes: _notes.text.trim(),
@@ -224,74 +172,17 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'No se parte el recaudo viejo. Anota lo que hay hoy en cada tarjeta; desde esa fecha el IPV P/F y las extracciones nuevas sí cuentan.',
-            style: TextStyle(color: AppColors.muted),
-          ),
           ErrorBanner(_error),
           if (_loading) const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
           if (!_loading && ledger != null) ...[
             const SizedBox(height: 16),
-            const Text('Saldo Que Hay Ahora', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Desde *'),
-              subtitle: Text(formatDateOnly(_openingDate)),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.parse('${_openingDate}T00:00:00'),
-                  firstDate: DateTime(2024),
-                  lastDate: DateTime(2032),
-                );
-                if (picked != null) {
-                  setState(() => _openingDate = isoDate(picked));
-                }
-              },
-            ),
-            LabeledField(label: 'Tarjeta P *', controller: _openingP, keyboardType: TextInputType.number),
-            const SizedBox(height: 8),
-            LabeledField(label: 'Tarjeta F *', controller: _openingF, keyboardType: TextInputType.number),
-            const SizedBox(height: 16),
-            const Text('Efectivo En Caja', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            const Text(
-              'Lo de antes de esta fecha no cuenta. El importe es lo que había en el cajón ese día, ya aparte ganancia, gastos e impuesto.',
-              style: TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Caja Desde *'),
-              subtitle: Text(formatDateOnly(_cashOpeningDate)),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.parse('${_cashOpeningDate}T00:00:00'),
-                  firstDate: DateTime(2024),
-                  lastDate: DateTime(2032),
-                );
-                if (picked != null) {
-                  setState(() => _cashOpeningDate = isoDate(picked));
-                }
-              },
-            ),
-            LabeledField(label: 'Efectivo *', controller: _openingCash, keyboardType: TextInputType.number),
+            _BankFace(name: 'Cuenta Personal', letter: 'P', slice: ledger.p),
             const SizedBox(height: 12),
-            PrimaryButton(label: 'Guardar Saldo Inicial', loading: _savingOpening, onPressed: _saveOpening),
+            _BankFace(name: 'Cuenta Fiscal', letter: 'F', slice: ledger.f),
             const SizedBox(height: 16),
-            _BankFace(name: 'Tarjeta P', letter: 'P', slice: ledger.p),
-            const SizedBox(height: 12),
-            _BankFace(name: 'Tarjeta F', letter: 'F', slice: ledger.f),
-            const SizedBox(height: 16),
-            StatCard(
-              label: 'Total En Ambas',
-              value: formatMoney(ledger.p.balance + ledger.f.balance),
-              tone: moneyColor(ledger.p.balance + ledger.f.balance),
-            ),
+            StatCard(label: 'Total', value: formatMoney(ledger.p.balance + ledger.f.balance)),
             const SizedBox(height: 24),
-            const Text('Registrar Extracción O Depósito', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+            const Text('Registrar Extracción', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -313,20 +204,10 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
               value: _card,
               decoration: const InputDecoration(labelText: 'Tarjeta *'),
               items: const [
-                DropdownMenuItem(value: 'p', child: Text('Tarjeta P')),
-                DropdownMenuItem(value: 'f', child: Text('Tarjeta F')),
+                DropdownMenuItem(value: 'p', child: Text('Cuenta Personal')),
+                DropdownMenuItem(value: 'f', child: Text('Cuenta Fiscal')),
               ],
               onChanged: (value) => setState(() => _card = value ?? 'p'),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _kind,
-              decoration: const InputDecoration(labelText: 'Tipo *'),
-              items: const [
-                DropdownMenuItem(value: 'transfer_to_cash', child: Text('Extracción A Efectivo')),
-                DropdownMenuItem(value: 'cash_to_transfer', child: Text('Depósito Desde Efectivo')),
-              ],
-              onChanged: (value) => setState(() => _kind = value ?? 'transfer_to_cash'),
             ),
             const SizedBox(height: 8),
             LabeledField(label: 'Importe *', controller: _amount, keyboardType: TextInputType.number),
@@ -335,7 +216,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
             const SizedBox(height: 12),
             PrimaryButton(label: 'Registrar', loading: _saving, onPressed: _save),
             const SizedBox(height: 24),
-            const Text('Movimientos', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+            const Text('Extracciones', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
             if (_moves.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 12),
@@ -346,7 +227,7 @@ class _CardsScreenState extends ConsumerState<CardsScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: Text('${move.cardLabel} · ${move.kindLabel}'),
                 subtitle: Text(
-                  '${formatDateOnly(move.occurredOn)} · ${formatMoney(move.amount)}${move.notes.isEmpty ? '' : '\n${move.notes}'}${_opening != null && move.occurredOn.compareTo(_opening!.asOf) < 0 ? '\nNo entra en el saldo' : ''}',
+                  '${formatDateOnly(move.occurredOn)} · ${formatMoney(move.amount)}${move.notes.isEmpty ? '' : '\n${move.notes}'}',
                 ),
                 isThreeLine: move.notes.isNotEmpty,
                 trailing: IconButton(
@@ -409,47 +290,15 @@ class _BankFace extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: Text(
               formatMoney(slice.balance),
-              style: TextStyle(
-                color: slice.balance < 0 ? AppColors.accent : Colors.white,
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w800),
             ),
           ),
           const Align(
             alignment: Alignment.centerRight,
-            child: Text('Saldo', style: TextStyle(color: Colors.white70, fontSize: 12)),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _Mini(label: 'Inicial', value: slice.opening)),
-              Expanded(child: _Mini(label: 'Recibido', value: slice.received)),
-              Expanded(child: _Mini(label: 'Extraído', value: slice.withdrawn)),
-              Expanded(child: _Mini(label: 'Depositado', value: slice.deposited)),
-            ],
+            child: Text('Queda', style: TextStyle(color: Colors.white70, fontSize: 12)),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Mini extends StatelessWidget {
-  const _Mini({required this.label, required this.value});
-
-  final String label;
-  final double value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-        const SizedBox(height: 4),
-        Text(formatMoney(value), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
-      ],
     );
   }
 }

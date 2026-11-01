@@ -123,7 +123,16 @@ class WawaClient {
       }
       final saleTotal = asNum(row['sale_total']);
       final utilidad = asNum(row['utilidad']);
-      final tax = periodTaxes(saleTotal).total;
+      final cardRows = await _client
+          .from('ipv_documents')
+          .select('transfer_f_collected')
+          .gte('work_date', from)
+          .lte('work_date', to);
+      var cardF = 0.0;
+      for (final item in cardRows as List) {
+        cardF += asNum((item as Map)['transfer_f_collected']);
+      }
+      final tax = periodTaxes(declaredBilling(cardF)).total;
       return PeriodReport(
         from: '${row['from']}',
         to: '${row['to']}',

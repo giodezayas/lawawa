@@ -2,6 +2,8 @@ import {
   DomainError,
   InventoryErrorCodes,
   PeriodReport,
+  applyPeriodTaxes,
+  declaredBilling,
   type CreateExpenseEntryInput,
   type ExpenseEntry,
   type ExpenseRepository,
@@ -90,10 +92,20 @@ export class ExpenseRepositoryImpl implements ExpenseRepository {
       throw new DomainError(error?.message ?? 'No se pudo armar el corte.', InventoryErrorCodes.invalidInput);
     }
     const report = mapPeriodReport(data);
-    return PeriodReport.create({
-      ...report,
-      purchaseTotal: await this.sumPurchases(from, to),
-    });
+    const [purchaseTotal, cardF] = await Promise.all([this.sumPurchases(from, to), this.sumCardF(from, to)]);
+    return PeriodReport.create(applyPeriodTaxes({ ...report, purchaseTotal }, declaredBilling(cardF)));
+  }
+
+  private async sumCardF(from: string, to: string): Promise<number> {
+    const { data, error } = await this.client
+      .from('ipv_documents')
+      .select('transfer_f_collected')
+      .gte('work_date', from)
+      .lte('work_date', to);
+    if (error) {
+      throw new DomainError(error.message, InventoryErrorCodes.invalidInput);
+    }
+    return (data ?? []).reduce((sum, row) => sum + Number(row.transfer_f_collected), 0);
   }
 
   private async sumPurchases(from: string, to: string): Promise<number> {

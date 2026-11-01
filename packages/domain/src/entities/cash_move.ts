@@ -25,6 +25,6 @@ export const CashMove = {
   },
 
   cardLabel(card: TransferCard): string {
-    return card === 'p' ? 'Tarjeta P' : 'Tarjeta F';
+    return card === 'p' ? 'Cuenta Personal' : 'Cuenta Fiscal';
   },
 };
